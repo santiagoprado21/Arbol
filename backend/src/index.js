@@ -25,6 +25,7 @@ app.use(
 );
 app.use(express.json({ limit: '1mb' }));
 
+app.get('/', (_req, res) => res.json({ name: 'Árbol API', health: '/api/health' }));
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
