@@ -10,15 +10,17 @@ import clientRoutes from './routes/client.js';
 
 const app = express();
 
+// Entries may use "*" as a wildcard, e.g. https://arbol-*-team.vercel.app for Vercel preview URLs.
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
   .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+  .map((o) => o.trim().replace(/\/$/, ''))
+  .filter(Boolean)
+  .map((o) => new RegExp(`^${o.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[a-z0-9-]+')}$`, 'i'));
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      if (!origin || allowedOrigins.some((re) => re.test(origin))) return cb(null, true);
       cb(new Error(`Origen no permitido: ${origin}`));
     },
   }),
