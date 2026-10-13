@@ -11,7 +11,7 @@ const FILTERS = [
   ['attention', 'Requieren atención'],
   ['ok', 'Al día'],
   ['no_plan', 'Sin plan'],
-  ['essential', 'Essential'],
+  ['founder', 'Founders'],
 ];
 
 export default function Clients() {
@@ -30,7 +30,7 @@ export default function Clients() {
     return clients.filter((c) => {
       if (term && ![c.full_name, c.email, c.cedula, c.phone].some((v) => v?.toLowerCase().includes(term))) return false;
       if (filter === 'attention') return ['expired', 'pending', 'expiring'].includes(c.alert.code);
-      if (filter === 'essential') return c.client_type === 'essential';
+      if (filter === 'founder') return c.client_type === 'founder';
       if (filter !== 'all') return c.alert.code === filter;
       return true;
     });
@@ -92,8 +92,8 @@ export default function Clients() {
                         <Link to={`/admin/clientes/${c.id}`} className="group block">
                           <p className="font-medium group-hover:text-seed">
                             {c.full_name}
-                            {c.client_type === 'essential' && (
-                              <Badge tone="white" className="ml-2 align-middle">Essential</Badge>
+                            {c.client_type === 'founder' && (
+                              <Badge tone="white" className="ml-2 align-middle">Founder</Badge>
                             )}
                             {c.status !== 'active' && <Badge className="ml-2 align-middle">{c.status === 'paused' ? 'Pausa' : 'Inactivo'}</Badge>}
                           </p>

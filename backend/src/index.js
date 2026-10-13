@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { initDb } from './db.js';
+import { runMigrations } from './migrations.js';
 import { seed } from './seed.js';
 import { ensureSlots } from './booking.js';
 import authRoutes from './routes/auth.js';
@@ -42,6 +43,7 @@ app.use((err, _req, res, _next) => {
 });
 
 await initDb();
+await runMigrations();
 await seed();
 await ensureSlots();
 

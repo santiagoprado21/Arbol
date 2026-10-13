@@ -25,7 +25,6 @@ export default function ClientHome() {
   const [slots, setSlots] = useState([]);
   const [reservations, setReservations] = useState([]);
   const [selectedDay, setSelectedDay] = useState(todayKey());
-  const [classType, setClassType] = useState(null);
   const [busySlot, setBusySlot] = useState(null);
   const [notice, setNotice] = useState(null);
 
@@ -38,7 +37,10 @@ export default function ClientHome() {
     setMemberships(m.memberships);
     setSlots(s.slots);
     setReservations(r.reservations);
-    setClassType((prev) => prev || m.memberships[0]?.class_type || 'semi');
+    setSelectedDay((prev) => {
+      const days = new Set(s.slots.map((slot) => dayKey(slot.starts_at)));
+      return days.has(prev) ? prev : [...days][0] || prev;
+    });
   }, []);
 
   useEffect(() => {
@@ -46,7 +48,9 @@ export default function ClientHome() {
   }, [load]);
 
   const days = useMemo(() => Array.from({ length: DAYS_SHOWN }, (_, i) => addDays(todayKey(), i)), []);
-  const daySlots = slots.filter((s) => dayKey(s.starts_at) === selectedDay && s.class_type === classType);
+  const daySlots = slots.filter((s) => dayKey(s.starts_at) === selectedDay);
+  const hasPersonalPlan = memberships?.some((m) => m.class_type === 'personal');
+  const personalLink = whatsappLink(`Hola, soy ${user.full_name} y quiero agendar mi sesión personalizada 1:1`);
   const upcoming = reservations
     .filter((r) => r.status === 'booked' && new Date(r.starts_at) > new Date())
     .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
@@ -130,7 +134,7 @@ export default function ClientHome() {
           ) : (
             memberships.map((m) => {
               const remaining = m.sessions_total - m.sessions_used;
-              const upcomingPlan = m.days_left > 0 && m.start_date > todayKey();
+              const upcomingPlan = m.start_date > todayKey();
               return (
                 <div key={m.id} className="card p-6">
                   <div className="flex items-start justify-between gap-3">
@@ -152,6 +156,11 @@ export default function ClientHome() {
                   <div className="mt-3">
                     <ProgressBar value={m.sessions_used} max={m.sessions_total} danger={remaining <= 1} />
                   </div>
+                  {m.class_type === 'personal' && (
+                    <a href={personalLink} target="_blank" rel="noreferrer" className="btn-primary btn-sm mt-5">
+                      <MessageCircle className="h-4 w-4" /> Agendar sesión 1:1
+                    </a>
+                  )}
                 </div>
               );
             })
@@ -198,29 +207,17 @@ export default function ClientHome() {
 
         {/* Schedule */}
         <section>
-          <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="mb-5">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <CalendarDays className="h-5 w-5 text-seed" /> Reservar horario
+              <CalendarDays className="h-5 w-5 text-seed" /> Reservar clase
             </h2>
-            <div className="inline-flex rounded-full border border-ink-600 p-1">
-              {Object.entries(CLASS_TYPES).map(([value, { label }]) => (
-                <button
-                  key={value}
-                  onClick={() => setClassType(value)}
-                  className={`rounded-full px-4 py-1.5 text-xs transition sm:text-sm ${
-                    classType === value ? 'bg-bone text-ink-950' : 'text-bone-muted hover:text-bone'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <p className="mt-1 text-sm text-bone-muted">Semi-personalizado · máximo 6 atletas por clase</p>
           </div>
 
           <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-2 [scrollbar-width:none]">
             {days.map((d) => {
               const active = d === selectedDay;
-              const count = slots.filter((s) => dayKey(s.starts_at) === d && s.class_type === classType).length;
+              const count = slots.filter((s) => dayKey(s.starts_at) === d).length;
               return (
                 <button
                   key={d}
@@ -239,7 +236,7 @@ export default function ClientHome() {
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {daySlots.length === 0 && (
               <div className="sm:col-span-2 lg:col-span-3">
-                <EmptyState icon={Clock} title="Sin horarios este día">Prueba con otro día o modalidad.</EmptyState>
+                <EmptyState icon={Clock} title="Sin clases este día">Prueba con otro día.</EmptyState>
               </div>
             )}
             {daySlots.map((slot) => {
@@ -284,6 +281,20 @@ export default function ClientHome() {
             })}
           </div>
         </section>
+
+        {!hasPersonalPlan && (
+          <section className="card flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">¿Prefieres entrenar 1:1?</p>
+              <p className="mt-1 text-sm text-bone-muted">
+                Las sesiones personalizadas se agendan directamente con tu coach para encontrar tu mejor horario.
+              </p>
+            </div>
+            <a href={personalLink} target="_blank" rel="noreferrer" className="btn-ghost shrink-0">
+              <MessageCircle className="h-4 w-4" /> Escribir por WhatsApp
+            </a>
+          </section>
+        )}
 
         {/* History */}
         {history.length > 0 && (

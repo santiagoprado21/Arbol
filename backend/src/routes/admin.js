@@ -43,7 +43,7 @@ async function clientsSummary() {
 router.get('/stats', async (_req, res) => {
   const [clients, active, pending, revenue, today, attendance, series, occupancy, summary] = await Promise.all([
     one(`SELECT count(*)::int AS total,
-                count(*) FILTER (WHERE client_type = 'essential')::int AS essential,
+                count(*) FILTER (WHERE client_type = 'founder')::int AS founder,
                 count(*) FILTER (WHERE created_at >= date_trunc('month', now()))::int AS new_this_month
          FROM users WHERE role = 'client'`),
     one(`SELECT count(DISTINCT user_id)::int AS n FROM memberships
@@ -146,7 +146,7 @@ router.post('/clients/:id/memberships', async (req, res) => {
   if (!user) throw new HttpError(404, 'Cliente no encontrado');
 
   const defaultAmount =
-    user.client_type === 'essential' && plan.price_essential != null ? plan.price_essential : plan.price_regular;
+    user.client_type === 'founder' && plan.price_founder != null ? plan.price_founder : plan.price_regular;
   const paid = b.payment_status === 'paid';
   const membership = await one(
     `INSERT INTO memberships
@@ -324,10 +324,10 @@ router.patch('/plans/:id', async (req, res) => {
     `UPDATE plans SET
        name = coalesce($2, name),
        price_regular = coalesce($3, price_regular),
-       price_essential = $4,
+       price_founder = $4,
        active = coalesce($5, active)
      WHERE id = $1 RETURNING *`,
-    [Number(req.params.id), b.name || null, num(b.price_regular), num(b.price_essential), b.active ?? null],
+    [Number(req.params.id), b.name || null, num(b.price_regular), num(b.price_founder), b.active ?? null],
   );
   if (!plan) throw new HttpError(404, 'Plan no encontrado');
   res.json({ plan });

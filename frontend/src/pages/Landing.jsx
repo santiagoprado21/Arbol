@@ -34,7 +34,7 @@ const MODALITIES = [
     title: 'Personalizado 1:1',
     tag: '100% para ti',
     text: 'Un coach dedicado exclusivamente a ti durante toda la sesión. Programación individual, técnica milimétrica y progreso medido semana a semana.',
-    points: ['Plan diseñado sobre tu historial y objetivos', 'Corrección técnica constante', 'Horarios en bloques exclusivos'],
+    points: ['Plan diseñado sobre tu historial y objetivos', 'Corrección técnica constante', 'Horario a tu medida: lo cuadramos por WhatsApp'],
   },
   {
     type: 'semi',
@@ -49,7 +49,11 @@ const MODALITIES = [
 const STEPS = [
   { icon: UserPlus, title: 'Crea tu perfil', text: 'Regístrate con tus datos y tu información de salud. Así sabemos desde dónde partimos.' },
   { icon: ShieldCheck, title: 'Activa tu plan', text: 'Elige modalidad y número de sesiones. Activamos tu plan apenas confirmamos el pago.' },
-  { icon: CalendarCheck, title: 'Reserva tu horario', text: 'Ve los cupos disponibles en tiempo real y aparta tu lugar desde la app.' },
+  {
+    icon: CalendarCheck,
+    title: 'Reserva tu horario',
+    text: 'En semi-personalizado apartas tu cupo desde la app. En 1:1 cuadramos contigo el mejor horario por WhatsApp.',
+  },
   { icon: Dumbbell, title: 'Entrena', text: 'Llega, entrena con tu coach y deja que el proceso haga lo suyo.' },
 ];
 
@@ -242,16 +246,27 @@ export default function Landing() {
                 <p className="mt-1 text-xs text-bone-dim">
                   {formatMoney(Math.round(plan.price_regular / plan.sessions))} por sesión
                 </p>
-                <Link to="/registro" className={`mt-8 ${featured ? 'btn-primary' : 'btn-ghost'}`}>
-                  Empezar
-                </Link>
+                {planType === 'personal' ? (
+                  <a
+                    href={whatsappLink(`Hola, quiero el plan Personalizado 1:1 de ${plan.sessions} sesiones y cuadrar mi horario`)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`mt-8 ${featured ? 'btn-primary' : 'btn-ghost'}`}
+                  >
+                    <MessageCircle className="h-4 w-4" /> Agendar por WhatsApp
+                  </a>
+                ) : (
+                  <Link to="/registro" className={`mt-8 ${featured ? 'btn-primary' : 'btn-ghost'}`}>
+                    Empezar
+                  </Link>
+                )}
               </div>
             );
           })}
         </div>
         <p className="mt-6 text-sm text-bone-dim">
-          ¿Te interesa la membresía <span className="text-bone">Essential</span> con tarifa preferencial anual?{' '}
-          <a href={whatsappLink('Hola, quiero información sobre la membresía Essential')} target="_blank" rel="noreferrer" className="text-bone underline decoration-seed underline-offset-4">
+          ¿Quieres ser parte de los <span className="text-bone">Founders</span>, la primera generación de Árbol con tarifa preferencial?{' '}
+          <a href={whatsappLink('Hola, quiero información sobre la membresía Founder')} target="_blank" rel="noreferrer" className="text-bone underline decoration-seed underline-offset-4">
             Pregúntanos
           </a>
           .

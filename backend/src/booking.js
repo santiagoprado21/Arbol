@@ -38,13 +38,16 @@ export async function activeMemberships(db, userId) {
   return rows;
 }
 
-export async function createReservation(db, userId, slotId) {
+export async function createReservation(db, userId, slotId, { allowPersonal = true } = {}) {
   const { rows: [user] } = await db.query('SELECT id, status FROM users WHERE id = $1', [userId]);
   if (!user) throw new HttpError(404, 'Cliente no encontrado');
   if (user.status !== 'active') throw new HttpError(403, 'Tu cuenta está en pausa. Escríbenos para reactivarla.');
 
   const { rows: [slot] } = await db.query('SELECT * FROM class_slots WHERE id = $1 FOR UPDATE', [slotId]);
   if (!slot || slot.status !== 'open') throw new HttpError(404, 'Este horario no está disponible');
+  if (slot.class_type === 'personal' && !allowPersonal) {
+    throw new HttpError(403, 'Las sesiones personalizadas se agendan por WhatsApp con tu coach');
+  }
 
   const startsAt = new Date(slot.starts_at);
   if (startsAt <= new Date()) throw new HttpError(400, 'Este horario ya pasó');

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   cedula            TEXT UNIQUE,
   phone             TEXT,
   role              TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('client', 'admin')),
-  client_type       TEXT NOT NULL DEFAULT 'regular' CHECK (client_type IN ('regular', 'essential')),
+  client_type       TEXT NOT NULL DEFAULT 'regular' CHECK (client_type IN ('regular', 'founder')),
   status            TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'inactive')),
   medical_notes     TEXT,
   admin_notes       TEXT,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS plans (
   class_type      TEXT NOT NULL CHECK (class_type IN ('personal', 'semi')),
   sessions        INTEGER NOT NULL CHECK (sessions > 0),
   price_regular   INTEGER NOT NULL,
-  price_essential INTEGER,
+  price_founder   INTEGER,
   active          BOOLEAN NOT NULL DEFAULT true
 );
 

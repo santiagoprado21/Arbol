@@ -16,7 +16,13 @@ export const formatDay = (ymd, opts = { day: 'numeric', month: 'short', year: 'n
   return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString('es-CO', { timeZone: 'UTC', ...opts });
 };
 
-export const dayKey = (date) => new Date(date).toLocaleDateString('en-CA', { timeZone: TZ });
+const dayParts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+
+// Built from parts because locale output (e.g. 'en-CA') is not a stable YYYY-MM-DD across browsers.
+export const dayKey = (date) => {
+  const p = Object.fromEntries(dayParts.formatToParts(new Date(date)).map(({ type, value }) => [type, value]));
+  return `${p.year}-${p.month}-${p.day}`;
+};
 
 export const todayKey = () => dayKey(new Date());
 

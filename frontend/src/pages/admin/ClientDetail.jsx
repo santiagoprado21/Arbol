@@ -21,8 +21,8 @@ function MembershipForm({ client, plans, onDone }) {
 
   const plan = plans.find((p) => String(p.id) === String(form.plan_id));
   const suggested = plan
-    ? client.client_type === 'essential' && plan.price_essential != null
-      ? plan.price_essential
+    ? client.client_type === 'founder' && plan.price_founder != null
+      ? plan.price_founder
       : plan.price_regular
     : 0;
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -141,7 +141,7 @@ export default function ClientDetail() {
         <div>
           <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight">
             {user.full_name}
-            {user.client_type === 'essential' && <Badge tone="white">Essential</Badge>}
+            {user.client_type === 'founder' && <Badge tone="white">Founder</Badge>}
           </h1>
           <p className="mt-1 text-sm text-bone-muted">
             CC {user.cedula} · {user.email} · {user.phone}
@@ -267,7 +267,7 @@ export default function ClientDetail() {
             <Field label="Tipo de cliente">
               <select className="input" value={profile.client_type} onChange={(e) => setProfile({ ...profile, client_type: e.target.value })}>
                 <option value="regular">Regular</option>
-                <option value="essential">Essential</option>
+                <option value="founder">Founder</option>
               </select>
             </Field>
             <Field label="Estado">

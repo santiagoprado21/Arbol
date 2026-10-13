@@ -19,11 +19,13 @@ Admin local por defecto: `admin@arbol.co` / `arbol123`. Para empezar de cero, bo
 
 ## Reglas de negocio actuales
 
-- Modalidades: **Personalizado 1:1** (cupo 1) y **Semi-personalizado** (cupo máximo 6).
+- Modalidades: **Personalizado 1:1** y **Semi-personalizado** (cupo máximo 6).
+- Los clientes solo reservan desde la app clases semi-personalizadas; las 1:1 se agendan por WhatsApp (el admin puede registrarlas en la agenda).
 - Para reservar, el cliente necesita un plan vigente de esa modalidad con sesiones disponibles.
 - Se puede reservar hasta 14 días adelante. Las clases se generan automáticamente desde las franjas semanales (pestaña Horarios).
 - Cancelar con 12 h o más devuelve la sesión; con menos de 12 h queda como cancelación tardía y la sesión se descuenta. Las inasistencias también descuentan.
-- Clientes **Essential**: el admin puede definir un precio mensual Essential por plan; se aplica automáticamente al activarles un plan.
+- Clientes **Founder**: el admin puede definir un precio mensual Founder por plan; se aplica automáticamente al activarles un plan.
+- Cambios de esquema o de datos van en `backend/src/migrations.js` y se aplican una sola vez al arrancar la API.
 
 ## Despliegue
 

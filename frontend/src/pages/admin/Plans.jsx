@@ -7,14 +7,14 @@ import { CLASS_TYPES, formatMoney } from '../../lib/format';
 function PlanRow({ plan, onSaved }) {
   const [form, setForm] = useState({
     price_regular: plan.price_regular,
-    price_essential: plan.price_essential ?? '',
+    price_founder: plan.price_founder ?? '',
     active: plan.active,
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const dirty =
     String(form.price_regular) !== String(plan.price_regular) ||
-    String(form.price_essential) !== String(plan.price_essential ?? '') ||
+    String(form.price_founder) !== String(plan.price_founder ?? '') ||
     form.active !== plan.active;
 
   const save = async () => {
@@ -48,8 +48,8 @@ function PlanRow({ plan, onSaved }) {
           min="0"
           className="input w-36 py-2"
           placeholder="Igual a regular"
-          value={form.price_essential}
-          onChange={(e) => setForm({ ...form, price_essential: e.target.value })}
+          value={form.price_founder}
+          onChange={(e) => setForm({ ...form, price_founder: e.target.value })}
         />
       </td>
       <td className="px-5 py-3">
@@ -78,7 +78,7 @@ export default function Plans() {
     <div>
       <PageHeader
         title="Planes y precios"
-        subtitle="El precio Essential se aplica automáticamente al activar un plan para clientes Essential."
+        subtitle="El precio Founder se aplica automáticamente al activar un plan para clientes Founder."
       />
       <div className="card overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
@@ -86,7 +86,7 @@ export default function Plans() {
             <tr>
               <th className="px-5 py-3 font-medium">Plan</th>
               <th className="px-5 py-3 font-medium">Precio regular</th>
-              <th className="px-5 py-3 font-medium">Precio Essential</th>
+              <th className="px-5 py-3 font-medium">Precio Founder</th>
               <th className="px-5 py-3 font-medium">Activo</th>
               <th className="px-5 py-3" />
             </tr>

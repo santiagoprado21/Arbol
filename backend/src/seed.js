@@ -10,10 +10,6 @@ const PLANS = [
   ['personal_12', 'Personalizado 1:1 · 12 sesiones', 'personal', 12, 810000],
 ];
 
-const SEMI_HOURS = ['06:00', '07:00', '08:00', '17:00', '18:00', '19:00'];
-const PERSONAL_HOURS = ['09:00', '10:00', '11:00', '15:00', '16:00'];
-const SATURDAY_SEMI = ['08:00', '09:00'];
-
 export async function seed() {
   for (const [code, name, type, sessions, price] of PLANS) {
     await query(
@@ -21,22 +17,6 @@ export async function seed() {
        VALUES ($1, $2, $3, $4, $5) ON CONFLICT (code) DO NOTHING`,
       [code, name, type, sessions, price],
     );
-  }
-
-  const { n } = await one('SELECT count(*)::int AS n FROM schedule_templates');
-  if (n === 0) {
-    const rows = [];
-    for (let weekday = 1; weekday <= 5; weekday++) {
-      SEMI_HOURS.forEach((h) => rows.push([weekday, h, 'semi', 6]));
-      PERSONAL_HOURS.forEach((h) => rows.push([weekday, h, 'personal', 1]));
-    }
-    SATURDAY_SEMI.forEach((h) => rows.push([6, h, 'semi', 6]));
-    for (const [weekday, time, type, capacity] of rows) {
-      await query(
-        `INSERT INTO schedule_templates (weekday, start_time, class_type, capacity) VALUES ($1, $2, $3, $4)`,
-        [weekday, time, type, capacity],
-      );
-    }
   }
 
   const isProd = process.env.NODE_ENV === 'production';

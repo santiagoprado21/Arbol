@@ -15,7 +15,7 @@ const router = Router();
 
 router.get('/plans', async (_req, res) => {
   const { rows } = await query(
-    `SELECT id, code, name, class_type, sessions, price_regular, price_essential
+    `SELECT id, code, name, class_type, sessions, price_regular, price_founder
      FROM plans WHERE active ORDER BY class_type DESC, sessions`,
   );
   res.json({ plans: rows });
@@ -37,7 +37,7 @@ router.get('/slots', async (req, res) => {
             (SELECT r.id FROM reservations r WHERE r.slot_id = s.id AND r.user_id = $3 AND r.status = 'booked' LIMIT 1)
               AS my_reservation_id
      FROM class_slots s
-     WHERE s.status = 'open'
+     WHERE s.status = 'open' AND s.class_type = 'semi'
        AND s.starts_at >= (coalesce($1::date, current_date))::timestamp AT TIME ZONE '${TZ}'
        AND s.starts_at < (coalesce($1::date, current_date) + $2::int)::timestamp AT TIME ZONE '${TZ}'
      ORDER BY s.starts_at, s.class_type`,
@@ -62,7 +62,9 @@ router.get('/me/reservations', async (req, res) => {
 });
 
 router.post('/reservations', async (req, res) => {
-  const reservation = await tx((db) => createReservation(db, req.user.id, Number(req.body?.slot_id)));
+  const reservation = await tx((db) =>
+    createReservation(db, req.user.id, Number(req.body?.slot_id), { allowPersonal: false }),
+  );
   res.status(201).json({ reservation });
 });
 
