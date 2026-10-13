@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  ::selection {
+    background: theme('colors.seed.DEFAULT');
+    color: white;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='time']::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.6;
+  }
+}
+
+@layer components {
+  .brand-title {
+    @apply font-display uppercase tracking-[0.2em];
+  }
+  .eyebrow {
+    @apply font-display text-[11px] uppercase tracking-brand text-bone-muted;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium
+      transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-seed text-white hover:bg-seed-600 hover:shadow-[0_0_30px_theme(colors.seed.glow)];
+  }
+  .btn-light {
+    @apply btn bg-bone text-ink-950 hover:bg-white;
+  }
+  .btn-ghost {
+    @apply btn border border-ink-600 text-bone hover:border-bone-dim hover:bg-ink-800;
+  }
+  .btn-sm {
+    @apply px-3.5 py-1.5 text-xs;
+  }
+  .card {
+    @apply rounded-2xl border border-ink-700 bg-ink-900/80;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wider text-bone-muted;
+  }
+  .input {
+    @apply w-full rounded-xl border border-ink-600 bg-ink-850 px-4 py-2.5 text-sm text-bone
+      placeholder:text-bone-dim outline-none transition focus:border-seed focus:ring-2 focus:ring-seed/20;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium;
+  }
+}
