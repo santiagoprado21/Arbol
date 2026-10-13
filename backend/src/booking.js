@@ -1,4 +1,4 @@
-import { query, TZ } from './db.js';
+import { query, TODAY, TZ } from './db.js';
 import { HttpError } from './auth.js';
 
 export const LATE_CANCEL_HOURS = 12;
@@ -16,7 +16,7 @@ export async function ensureSlots(days = SLOT_GENERATION_DAYS) {
      SELECT (d::date + t.start_time::time) AT TIME ZONE '${TZ}',
             (d::date + t.start_time::time + make_interval(mins => t.duration_min)) AT TIME ZONE '${TZ}',
             t.class_type, t.capacity
-     FROM generate_series(current_date::timestamp, (current_date + $1::int)::timestamp, interval '1 day') d
+     FROM generate_series(${TODAY}::timestamp, (${TODAY} + $1::int)::timestamp, interval '1 day') d
      JOIN schedule_templates t ON t.active AND t.weekday = extract(dow FROM d)::int
      ON CONFLICT (starts_at, class_type) DO NOTHING`,
     [days],
@@ -29,9 +29,9 @@ export async function activeMemberships(db, userId) {
             p.name AS plan_name, p.class_type,
             (SELECT count(*)::int FROM reservations r
               WHERE r.membership_id = m.id AND r.status IN ${CONSUMING}) AS sessions_used,
-            (m.end_date - current_date)::int AS days_left
+            (m.end_date - ${TODAY})::int AS days_left
      FROM memberships m JOIN plans p ON p.id = m.plan_id
-     WHERE m.user_id = $1 AND m.end_date >= current_date
+     WHERE m.user_id = $1 AND m.end_date >= ${TODAY}
      ORDER BY m.start_date`,
     [userId],
   );

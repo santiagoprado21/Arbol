@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays, Clock, LogOut, MessageCircle, Users } from 'lucide-react';
 import Logo from '../../components/Logo';
-import { Badge, EmptyState, ErrorNote, PageLoader, ProgressBar, Spinner } from '../../components/ui';
+import { Badge, EmptyState, ErrorNote, Modal, PageLoader, ProgressBar, Spinner } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import {
@@ -27,6 +27,7 @@ export default function ClientHome() {
   const [selectedDay, setSelectedDay] = useState(todayKey());
   const [busySlot, setBusySlot] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [confirmation, setConfirmation] = useState(null);
 
   const load = useCallback(async () => {
     const [m, s, r] = await Promise.all([
@@ -73,7 +74,13 @@ export default function ClientHome() {
   const book = (slot) =>
     act(async () => {
       await api('/reservations', { method: 'POST', body: { slot_id: slot.id } });
-      return `Listo: reservaste ${formatDate(slot.starts_at, { weekday: 'long', day: 'numeric' })} a las ${formatTime(slot.starts_at)}.`;
+      const when = `${formatDate(slot.starts_at, { weekday: 'long', day: 'numeric', month: 'long' })} a las ${formatTime(slot.starts_at)}`;
+      const link = whatsappLink(
+        `Hola, soy ${user.full_name}. Reservé mi clase semi-personalizada para el ${when}. ¡Nos vemos en Árbol!`,
+      );
+      setConfirmation({ when, link });
+      window.open(link, '_blank');
+      return `Listo: reservaste el ${when}.`;
     }, slot.id);
 
   const cancel = (reservationId, slotId, startsAt) => {
@@ -139,7 +146,10 @@ export default function ClientHome() {
                 <div key={m.id} className="card p-6">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs uppercase tracking-wider text-bone-muted">{upcomingPlan ? 'Próximo plan' : 'Plan activo'}</p>
+                      <p className="text-xs uppercase tracking-wider text-bone-muted">
+                        Plan activo
+                        {upcomingPlan && ` · desde ${formatDay(m.start_date, { day: 'numeric', month: 'short' })}`}
+                      </p>
                       <p className="mt-1 text-lg font-semibold">{m.plan_name}</p>
                     </div>
                     {m.payment_status === 'pending' && <Badge tone="amber">Pago pendiente</Badge>}
@@ -314,6 +324,23 @@ export default function ClientHome() {
           </section>
         )}
       </main>
+
+      <Modal open={Boolean(confirmation)} onClose={() => setConfirmation(null)} title="¡Reserva confirmada!">
+        {confirmation && (
+          <div className="space-y-5">
+            <p className="text-sm text-bone-muted">
+              Tu clase quedó para el <span className="capitalize text-bone">{confirmation.when}</span>. Envíanos la
+              confirmación por WhatsApp para que tu coach te tenga en la lista.
+            </p>
+            <a href={confirmation.link} target="_blank" rel="noreferrer" className="btn-primary w-full py-3">
+              <MessageCircle className="h-4 w-4" /> Enviar confirmación por WhatsApp
+            </a>
+            <button className="btn-ghost w-full" onClick={() => setConfirmation(null)}>
+              Listo
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

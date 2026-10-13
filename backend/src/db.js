@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 export const TZ = 'America/Bogota';
+// Calendar "today" for the studio, independent of the database server's timezone.
+export const TODAY = `(now() AT TIME ZONE '${TZ}')::date`;
 
 const DATE_OID = 1082;
 const keepDateAsText = (v) => v;

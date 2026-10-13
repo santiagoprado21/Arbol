@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { query, tx, TZ } from '../db.js';
+import { query, tx, TODAY, TZ } from '../db.js';
 import { requireAuth } from '../auth.js';
 import {
   BOOKING_HORIZON_DAYS,
@@ -38,8 +38,8 @@ router.get('/slots', async (req, res) => {
               AS my_reservation_id
      FROM class_slots s
      WHERE s.status = 'open' AND s.class_type = 'semi'
-       AND s.starts_at >= (coalesce($1::date, current_date))::timestamp AT TIME ZONE '${TZ}'
-       AND s.starts_at < (coalesce($1::date, current_date) + $2::int)::timestamp AT TIME ZONE '${TZ}'
+       AND s.starts_at >= (coalesce($1::date, ${TODAY}))::timestamp AT TIME ZONE '${TZ}'
+       AND s.starts_at < (coalesce($1::date, ${TODAY}) + $2::int)::timestamp AT TIME ZONE '${TZ}'
      ORDER BY s.starts_at, s.class_type`,
     [from, days, req.user.id],
   );

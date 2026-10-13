@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { one, query, tx, TZ } from '../db.js';
+import { one, query, tx, TODAY, TZ } from '../db.js';
 import { HttpError, publicUser, requireAdmin, requireAuth } from '../auth.js';
 import { CONSUMING, OCCUPYING, cancelReservation, createReservation, ensureSlots } from '../booking.js';
 
@@ -25,13 +25,13 @@ async function clientsSummary() {
             p.name AS plan_name, p.class_type,
             (SELECT count(*)::int FROM reservations r WHERE r.membership_id = m.id AND r.status IN ${CONSUMING})
               AS sessions_used,
-            (m.end_date - current_date)::int AS days_left,
+            (m.end_date - ${TODAY})::int AS days_left,
             (SELECT max(s.starts_at) FROM reservations r JOIN class_slots s ON s.id = r.slot_id
               WHERE r.user_id = u.id AND r.status = 'attended') AS last_attended
      FROM users u
      LEFT JOIN LATERAL (
        SELECT * FROM memberships mm WHERE mm.user_id = u.id
-       ORDER BY (current_date BETWEEN mm.start_date AND mm.end_date) DESC, mm.end_date DESC LIMIT 1
+       ORDER BY (${TODAY} BETWEEN mm.start_date AND mm.end_date) DESC, mm.end_date DESC LIMIT 1
      ) m ON true
      LEFT JOIN plans p ON p.id = m.plan_id
      WHERE u.role = 'client'
@@ -46,8 +46,9 @@ router.get('/stats', async (_req, res) => {
                 count(*) FILTER (WHERE client_type = 'founder')::int AS founder,
                 count(*) FILTER (WHERE created_at >= date_trunc('month', now()))::int AS new_this_month
          FROM users WHERE role = 'client'`),
-    one(`SELECT count(DISTINCT user_id)::int AS n FROM memberships
-         WHERE current_date BETWEEN start_date AND end_date`),
+    one(`SELECT count(DISTINCT m.user_id)::int AS n FROM memberships m
+         JOIN users u ON u.id = m.user_id AND u.role = 'client'
+         WHERE m.end_date >= ${TODAY}`),
     one(`SELECT count(*)::int AS n, coalesce(sum(amount), 0)::int AS total
          FROM memberships WHERE payment_status = 'pending'`),
     one(`SELECT coalesce(sum(amount), 0)::int AS total FROM memberships
@@ -56,7 +57,7 @@ router.get('/stats', async (_req, res) => {
                 coalesce(sum((SELECT count(*) FROM reservations r WHERE r.slot_id = s.id AND r.status IN ${OCCUPYING})), 0)::int
                   AS booked
          FROM class_slots s
-         WHERE s.status = 'open' AND (s.starts_at AT TIME ZONE '${TZ}')::date = current_date`),
+         WHERE s.status = 'open' AND (s.starts_at AT TIME ZONE '${TZ}')::date = ${TODAY}`),
     one(`SELECT count(*) FILTER (WHERE r.status = 'attended')::int AS attended,
                 count(*) FILTER (WHERE r.status = 'no_show')::int AS no_show,
                 count(*) FILTER (WHERE r.status = 'late_cancel')::int AS late_cancel
@@ -65,7 +66,7 @@ router.get('/stats', async (_req, res) => {
     query(`SELECT d::date::text AS day,
                   count(r.id) FILTER (WHERE r.status IN ${OCCUPYING})::int AS reservations,
                   count(r.id) FILTER (WHERE r.status = 'attended')::int AS attended
-           FROM generate_series((current_date - 13)::timestamp, current_date::timestamp, interval '1 day') d
+           FROM generate_series((${TODAY} - 13)::timestamp, ${TODAY}::timestamp, interval '1 day') d
            LEFT JOIN class_slots s ON (s.starts_at AT TIME ZONE '${TZ}')::date = d::date
            LEFT JOIN reservations r ON r.slot_id = s.id
            GROUP BY d ORDER BY d`),
@@ -109,7 +110,7 @@ router.get('/clients/:id', async (req, res) => {
       `SELECT m.*, p.name AS plan_name, p.class_type,
               (SELECT count(*)::int FROM reservations r WHERE r.membership_id = m.id AND r.status IN ${CONSUMING})
                 AS sessions_used,
-              (m.end_date - current_date)::int AS days_left
+              (m.end_date - ${TODAY})::int AS days_left
        FROM memberships m JOIN plans p ON p.id = m.plan_id
        WHERE m.user_id = $1 ORDER BY m.start_date DESC`,
       [id],
@@ -152,8 +153,8 @@ router.post('/clients/:id/memberships', async (req, res) => {
     `INSERT INTO memberships
        (user_id, plan_id, start_date, end_date, sessions_total, amount, payment_status, payment_method,
         payment_reference, paid_at, notes)
-     VALUES ($1, $2, coalesce($3::date, current_date),
-             coalesce($4::date, (coalesce($3::date, current_date) + interval '1 month' - interval '1 day')::date),
+     VALUES ($1, $2, coalesce($3::date, ${TODAY}),
+             coalesce($4::date, (coalesce($3::date, ${TODAY}) + interval '1 month' - interval '1 day')::date),
              $5, $6, $7, $8, $9, CASE WHEN $7 = 'paid' THEN now() END, $10)
      RETURNING *`,
     [
@@ -216,7 +217,7 @@ router.get('/agenda', async (req, res) => {
      FROM class_slots s
      LEFT JOIN reservations r ON r.slot_id = s.id AND r.status <> 'cancelled'
      LEFT JOIN users u ON u.id = r.user_id
-     WHERE (s.starts_at AT TIME ZONE '${TZ}')::date = coalesce($1::date, current_date)
+     WHERE (s.starts_at AT TIME ZONE '${TZ}')::date = coalesce($1::date, ${TODAY})
      GROUP BY s.id ORDER BY s.starts_at, s.class_type`,
     [date],
   );
