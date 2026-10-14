@@ -16,13 +16,12 @@ import {
 import Navbar from '../components/Navbar';
 import Logo, { SeedMark } from '../components/Logo';
 import { api } from '../lib/api';
-import { formatMoney, whatsappLink } from '../lib/format';
+import { EVALUATION_LABEL, EVALUATION_PRICE, formatMoney, whatsappLink } from '../lib/format';
 
 const FALLBACK_PLANS = [
   { id: 'p4', class_type: 'personal', sessions: 4, price_regular: 300000 },
   { id: 'p8', class_type: 'personal', sessions: 8, price_regular: 580000 },
   { id: 'p12', class_type: 'personal', sessions: 12, price_regular: 810000 },
-  { id: 's4', class_type: 'semi', sessions: 4, price_regular: 160000 },
   { id: 's8', class_type: 'semi', sessions: 8, price_regular: 280000 },
   { id: 's12', class_type: 'semi', sessions: 12, price_regular: 390000 },
 ];
@@ -39,7 +38,7 @@ const MODALITIES = [
   {
     type: 'semi',
     icon: Users,
-    title: 'Semi-personalizado',
+    title: 'FLEX',
     tag: 'Máximo 6 personas',
     text: 'La energía de entrenar acompañado sin perder la atención personalizada. Grupos reducidos donde cada atleta sigue su propia progresión.',
     points: ['Cupo máximo de 6 atletas por franja', 'Cargas y variantes adaptadas a cada persona', 'Comunidad que empuja'],
@@ -47,12 +46,16 @@ const MODALITIES = [
 ];
 
 const STEPS = [
-  { icon: UserPlus, title: 'Crea tu perfil', text: 'Regístrate con tus datos y tu información de salud. Así sabemos desde dónde partimos.' },
+  {
+    icon: UserPlus,
+    title: 'Crea tu perfil y valórate',
+    text: `Regístrate y agenda tu ${EVALUATION_LABEL.toLowerCase()} (${formatMoney(EVALUATION_PRICE)}, abonables a tu plan).`,
+  },
   { icon: ShieldCheck, title: 'Activa tu plan', text: 'Elige modalidad y número de sesiones. Activamos tu plan apenas confirmamos el pago.' },
   {
     icon: CalendarCheck,
     title: 'Reserva tu horario',
-    text: 'En semi-personalizado apartas tu cupo desde la app. En 1:1 cuadramos contigo el mejor horario por WhatsApp.',
+    text: 'En FLEX apartas tu cupo desde la app. En 1:1 cuadramos contigo el mejor horario por WhatsApp.',
   },
   { icon: Dumbbell, title: 'Entrena', text: 'Llega, entrena con tu coach y deja que el proceso haga lo suyo.' },
 ];
@@ -213,7 +216,7 @@ export default function Landing() {
           </div>
           <div className="inline-flex rounded-full border border-ink-600 p-1">
             {[
-              ['semi', 'Semi-personalizado'],
+              ['semi', 'FLEX'],
               ['personal', 'Personalizado 1:1'],
             ].map(([value, label]) => (
               <button
@@ -239,7 +242,7 @@ export default function Landing() {
               >
                 {featured && <span className="absolute -top-3 left-8 badge bg-seed text-white">Más elegido</span>}
                 <p className="text-sm text-bone-muted">
-                  {planType === 'semi' ? 'Semi-personalizado' : 'Personalizado 1:1'}
+                  {planType === 'semi' ? 'FLEX' : 'Personalizado 1:1'}
                 </p>
                 <p className="mt-2 text-2xl font-semibold">{plan.sessions} sesiones / mes</p>
                 <p className="mt-6 text-4xl font-semibold tracking-tight">{formatMoney(plan.price_regular)}</p>
@@ -264,13 +267,36 @@ export default function Landing() {
             );
           })}
         </div>
-        <p className="mt-6 text-sm text-bone-dim">
-          ¿Quieres ser parte de los <span className="text-bone">Founders</span>, la primera generación de Árbol con tarifa preferencial?{' '}
-          <a href={whatsappLink('Hola, quiero información sobre la membresía Founder')} target="_blank" rel="noreferrer" className="text-bone underline decoration-seed underline-offset-4">
-            Pregúntanos
-          </a>
-          .
-        </p>
+        <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="card relative overflow-hidden border-seed/40 p-8">
+            <SeedMark className="absolute right-6 top-6 h-4 w-10 text-seed" />
+            <p className="text-xs font-medium uppercase tracking-wider text-seed">Membresía anual</p>
+            <h3 className="mt-2 text-2xl font-semibold">Founder</h3>
+            <p className="mt-3 text-sm leading-relaxed text-bone-muted">
+              La primera generación de Árbol. Tarifas exclusivas con bono mensual mientras mantengas tu plan, prioridad para
+              agendar, horarios Founders Only, un invitado con tarifa Founder y congelamiento flexible.
+            </p>
+            <a
+              href={whatsappLink('Hola, quiero información sobre la membresía Founder')}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-ghost mt-6"
+            >
+              <MessageCircle className="h-4 w-4" /> Quiero ser Founder
+            </a>
+          </div>
+          <div className="card p-8">
+            <p className="text-xs font-medium uppercase tracking-wider text-seed">Empieza aquí</p>
+            <h3 className="mt-2 text-2xl font-semibold">{EVALUATION_LABEL}</h3>
+            <p className="mt-3 text-sm leading-relaxed text-bone-muted">
+              Una sesión 1:1 para evaluar cómo te mueves y probar el entrenamiento. Cuesta {formatMoney(EVALUATION_PRICE)} y,
+              si te quedas, te los abonamos a tu primer plan.
+            </p>
+            <Link to="/registro" className="btn-primary mt-6">
+              Agendar mi valoración
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* How it works */}

@@ -4,12 +4,24 @@ import { Ban, Check, ChevronLeft, ChevronRight, RotateCcw, UserPlus, X } from 'l
 import { PageHeader } from './AdminLayout';
 import { Badge, EmptyState, ErrorNote, Field, Modal, PageLoader } from '../../components/ui';
 import { api } from '../../lib/api';
-import { CLASS_TYPES, RESERVATION_STATUS, addDays, formatDay, formatTime, todayKey } from '../../lib/format';
+import {
+  CLASS_TYPES,
+  EVALUATION_LABEL,
+  EVALUATION_PRICE,
+  RESERVATION_STATUS,
+  addDays,
+  formatDay,
+  formatMoney,
+  formatTime,
+  todayKey,
+} from '../../lib/format';
 
 function AddAttendee({ slot, onDone }) {
   const [clients, setClients] = useState([]);
   const [userId, setUserId] = useState('');
+  const [evaluation, setEvaluation] = useState(false);
   const [error, setError] = useState('');
+  const canEvaluate = slot.class_type === 'personal' && slot.attendees.length === 0;
 
   useEffect(() => {
     api('/admin/clients').then((d) => setClients(d.clients.filter((c) => c.status === 'active')));
@@ -19,7 +31,8 @@ function AddAttendee({ slot, onDone }) {
     e.preventDefault();
     setError('');
     try {
-      await api('/admin/reservations', { method: 'POST', body: { slot_id: slot.id, user_id: Number(userId) } });
+      const body = { slot_id: slot.id, user_id: Number(userId) };
+      await api(evaluation ? '/admin/evaluations' : '/admin/reservations', { method: 'POST', body });
       onDone();
     } catch (err) {
       setError(err.message);
@@ -41,8 +54,19 @@ function AddAttendee({ slot, onDone }) {
           ))}
         </select>
       </Field>
+      {canEvaluate && (
+        <label className="flex items-start gap-3 rounded-xl border border-ink-600 p-3">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-seed" checked={evaluation} onChange={(e) => setEvaluation(e.target.checked)} />
+          <span>
+            <span className="block text-sm font-medium">{EVALUATION_LABEL}</span>
+            <span className="block text-xs text-bone-dim">
+              Cobro de {formatMoney(EVALUATION_PRICE)}, no descuenta sesiones. Se abona al primer plan que compre.
+            </span>
+          </span>
+        </label>
+      )}
       <ErrorNote>{error}</ErrorNote>
-      <button className="btn-primary w-full">Agregar a la clase</button>
+      <button className="btn-primary w-full">{evaluation ? 'Agendar valoración' : 'Agregar a la clase'}</button>
     </form>
   );
 }
@@ -117,7 +141,10 @@ export default function Agenda() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xl font-semibold">{formatTime(slot.starts_at)}</p>
-                    <p className="text-xs text-bone-muted">{CLASS_TYPES[slot.class_type].label}</p>
+                    <p className="text-xs text-bone-muted">
+                      {CLASS_TYPES[slot.class_type].label}
+                      {slot.founders_only && <Badge tone="red" className="ml-2">Founders Only</Badge>}
+                    </p>
                   </div>
                   <div className="text-right">
                     <Badge tone={active.length >= slot.capacity ? 'red' : 'gray'}>
@@ -135,9 +162,16 @@ export default function Agenda() {
                         <Link to={`/admin/clientes/${a.user_id}`} className="block truncate text-sm hover:text-seed">
                           {a.full_name}
                         </Link>
-                        {a.status !== 'booked' && (
-                          <span className="text-[11px] text-bone-dim">{RESERVATION_STATUS[a.status].label}</span>
-                        )}
+                        <span className="text-[11px] text-bone-dim">
+                          {[
+                            a.founder && 'Founder',
+                            a.client_type === 'founder_guest' && 'Invitado Founder',
+                            a.is_evaluation && 'Valoración',
+                            a.status !== 'booked' && RESERVATION_STATUS[a.status].label,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
                       </div>
                       <div className="flex shrink-0 gap-1">
                         {a.status === 'booked' ? (
@@ -183,6 +217,15 @@ export default function Agenda() {
                   >
                     {cancelled ? 'Reabrir' : 'Cancelar clase'}
                   </button>
+                  {!cancelled && !past && (
+                    <button
+                      className="btn-ghost btn-sm"
+                      title="Solo esta clase. Para todas las semanas, edita la franja en Horarios."
+                      onClick={() => run(() => api(`/admin/slots/${slot.id}`, { method: 'PATCH', body: { founders_only: !slot.founders_only } }))}
+                    >
+                      {slot.founders_only ? 'Abrir a todos' : 'Founders Only'}
+                    </button>
+                  )}
                 </div>
               </div>
             );

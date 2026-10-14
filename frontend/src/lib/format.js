@@ -33,9 +33,27 @@ export const addDays = (ymd, n) => {
 };
 
 export const CLASS_TYPES = {
-  semi: { label: 'Semi-personalizado', short: 'Semi', capacityLabel: 'máx. 6' },
+  semi: { label: 'FLEX', short: 'FLEX', capacityLabel: 'máx. 6' },
   personal: { label: 'Personalizado 1:1', short: '1:1', capacityLabel: '1 atleta' },
+  membership: { label: 'Membresía Founder', short: 'Founder', capacityLabel: '' },
 };
+
+export const CLIENT_TYPES = {
+  regular: 'Regular',
+  founder: 'Founder',
+  founder_guest: 'Invitado Founder',
+};
+
+export const PRICE_TIERS = {
+  regular: 'Tarifa regular',
+  founder: 'Tarifa Founder',
+  founder_bonus: 'Tarifa Founder + bono mensual',
+  membership: 'Membresía anual',
+};
+
+export const EVALUATION_LABEL = 'Valoración biomecánica y prueba';
+// Display only; the charged amount comes from the API (EVALUATION_PRICE in backend/src/membership.js).
+export const EVALUATION_PRICE = 50000;
 
 export const RESERVATION_STATUS = {
   booked: { label: 'Reservada', tone: 'blue' },

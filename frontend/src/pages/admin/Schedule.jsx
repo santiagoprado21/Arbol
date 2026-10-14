@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { PageHeader } from './AdminLayout';
-import { ErrorNote, Field, Modal, PageLoader } from '../../components/ui';
+import { Badge, ErrorNote, Field, Modal, PageLoader } from '../../components/ui';
 import { api } from '../../lib/api';
 import { CLASS_TYPES, WEEKDAYS } from '../../lib/format';
 
@@ -13,7 +13,14 @@ const to12h = (hhmm) => {
 };
 
 function TemplateForm({ onDone }) {
-  const [form, setForm] = useState({ weekdays: [1, 2, 3, 4, 5], start_time: '06:00', class_type: 'semi', capacity: 6, duration_min: 60 });
+  const [form, setForm] = useState({
+    weekdays: [1, 2, 3, 4, 5],
+    start_time: '06:00',
+    class_type: 'semi',
+    capacity: 6,
+    duration_min: 60,
+    founders_only: false,
+  });
   const [error, setError] = useState('');
 
   const toggleDay = (d) =>
@@ -64,7 +71,7 @@ function TemplateForm({ onDone }) {
             value={form.class_type}
             onChange={(e) => setForm({ ...form, class_type: e.target.value, capacity: e.target.value === 'semi' ? 6 : 1 })}
           >
-            <option value="semi">Semi-personalizado</option>
+            <option value="semi">FLEX</option>
             <option value="personal">Personalizado 1:1</option>
           </select>
         </Field>
@@ -72,6 +79,21 @@ function TemplateForm({ onDone }) {
           <input type="number" min="1" max="20" className="input" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
         </Field>
       </div>
+      <label className="flex items-start gap-3 rounded-xl border border-ink-600 p-3">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 accent-seed"
+          checked={form.founders_only}
+          onChange={(e) => setForm({ ...form, founders_only: e.target.checked })}
+        />
+        <span>
+          <span className="block text-sm font-medium">Founders Only</span>
+          <span className="block text-xs text-bone-dim">Solo los Founders con membresía anual vigente ven y reservan esta franja.</span>
+        </span>
+      </label>
+      {form.class_type === 'personal' && !form.founders_only && (
+        <p className="text-xs text-bone-dim">Las franjas 1:1 libres también se ofrecen para agendar la Valoración biomecánica.</p>
+      )}
       <ErrorNote>{error}</ErrorNote>
       <button className="btn-primary w-full">Agregar franja</button>
     </form>
@@ -121,7 +143,10 @@ export default function Schedule() {
                 {list.map((t) => (
                   <div key={t.id} className="group flex items-center justify-between rounded-xl bg-ink-850 px-3 py-2">
                     <div>
-                      <p className="text-sm font-medium">{to12h(t.start_time)}</p>
+                      <p className="text-sm font-medium">
+                        {to12h(t.start_time)}
+                        {t.founders_only && <Badge tone="red" className="ml-2 align-middle">Founders Only</Badge>}
+                      </p>
                       <p className="text-[11px] text-bone-dim">
                         {CLASS_TYPES[t.class_type].short} · {t.capacity} {t.capacity === 1 ? 'cupo' : 'cupos'} · {t.duration_min} min
                       </p>

@@ -19,12 +19,17 @@ Admin local por defecto: `admin@arbol.co` / `arbol123`. Para empezar de cero, bo
 
 ## Reglas de negocio actuales
 
-- Modalidades: **Personalizado 1:1** y **Semi-personalizado** (cupo máximo 6).
-- Los clientes solo reservan desde la app clases semi-personalizadas; las 1:1 se agendan por WhatsApp (el admin puede registrarlas en la agenda).
-- Para reservar, el cliente necesita un plan vigente de esa modalidad con sesiones disponibles.
-- Se puede reservar hasta 14 días adelante. Las clases se generan automáticamente desde las franjas semanales (pestaña Horarios).
+- Modalidades: **Personalizado 1:1** y **FLEX** (antes semi-personalizado, cupo máximo 6). FLEX ya no tiene plan de 4 clases.
+- Los clientes solo reservan desde la app clases FLEX; las 1:1 se agendan por WhatsApp (el admin puede registrarlas en la agenda).
+- Para reservar, el cliente necesita un plan vigente de esa modalidad con sesiones disponibles (y no congelado en esa fecha).
+- Se puede reservar hasta 14 días adelante (21 para Founders). Las clases se generan automáticamente desde las franjas semanales (pestaña Horarios).
 - Cancelar con 12 h o más devuelve la sesión; con menos de 12 h queda como cancelación tardía y la sesión se descuenta. Las inasistencias también descuentan.
-- Clientes **Founder**: el admin puede definir un precio mensual Founder por plan; se aplica automáticamente al activarles un plan.
+- Tipos de cliente: **Regular**, **Founder** e **Invitado Founder** (cada Founder puede tener uno).
+- Los beneficios Founder se activan con la **Membresía Founder · Anual** (plan de 12 meses sin sesiones). Al activarla, el cliente pasa a Founder automáticamente. Beneficios: tarifas Founder, reservas con 21 días, franjas **Founders Only**, un invitado y congelamiento flexible.
+- Tarifas por plan: regular, Founder (también para Invitados Founder) y Founder con bono mensual. El bono se mantiene si cada plan nuevo empieza a más tardar 5 días después de que vence el anterior; si no, se pierde (el admin puede reactivarlo en el perfil).
+- Congelamiento por plan: regulares 1 vez hasta 7 días; Founders 2 veces hasta 21 días. El cliente lo solicita desde la app (desde mañana); el admin puede congelar sin límites. Los días congelados extienden el vencimiento y cancelan las reservas de esas fechas sin descontar sesiones.
+- **Valoración biomecánica y prueba**: $50.000, se agenda solo en franjas 1:1 libres (no Founders Only). Una vez pagada, se abona al siguiente plan que compre el cliente.
+- Ajustes rápidos (días, límites, precio de la valoración) en `backend/src/membership.js`.
 - Cambios de esquema o de datos van en `backend/src/migrations.js` y se aplican una sola vez al arrancar la API.
 
 ## Despliegue

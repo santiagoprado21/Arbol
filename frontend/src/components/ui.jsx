@@ -14,6 +14,19 @@ export function Badge({ tone = 'gray', children, className = '' }) {
   return <span className={`badge ${TONES[tone]} ${className}`}>{children}</span>;
 }
 
+// `active` is false for a founder whose annual membership is not current: still labeled, but muted.
+export function ClientTypeBadge({ type, active = true, className = '' }) {
+  if (type === 'founder') {
+    return (
+      <span className={`badge ${active ? 'bg-seed/15 text-bone ring-1 ring-seed/50' : TONES.gray} ${className}`}>
+        Founder{!active && ' (sin membresía)'}
+      </span>
+    );
+  }
+  if (type === 'founder_guest') return <Badge tone="white" className={className}>Invitado Founder</Badge>;
+  return null;
+}
+
 export const ALERT_TONES = { ok: 'green', pending: 'amber', expiring: 'amber', expired: 'red', no_plan: 'gray' };
 
 export function Spinner({ className = 'h-5 w-5' }) {
@@ -69,7 +82,7 @@ export function Modal({ open, onClose, title, children, wide = false }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className={`card relative w-full animate-rise bg-ink-900 p-6 ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
+      <div className={`card relative max-h-[90vh] w-full animate-rise overflow-y-auto bg-ink-900 p-6 ${wide ? 'max-w-2xl' : 'max-w-md'}`}>
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-lg font-semibold">{title}</h3>
           <button onClick={onClose} className="rounded-full p-1 text-bone-muted hover:bg-ink-700 hover:text-bone">

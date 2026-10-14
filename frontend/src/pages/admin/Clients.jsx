@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Users } from 'lucide-react';
 import { PageHeader } from './AdminLayout';
-import { ALERT_TONES, Badge, EmptyState, ErrorNote, PageLoader, ProgressBar } from '../../components/ui';
+import { ALERT_TONES, Badge, ClientTypeBadge, EmptyState, ErrorNote, PageLoader, ProgressBar } from '../../components/ui';
 import { api } from '../../lib/api';
 import { formatDay } from '../../lib/format';
 
@@ -12,6 +12,7 @@ const FILTERS = [
   ['ok', 'Al día'],
   ['no_plan', 'Sin plan'],
   ['founder', 'Founders'],
+  ['founder_guest', 'Invitados Founder'],
 ];
 
 export default function Clients() {
@@ -30,7 +31,7 @@ export default function Clients() {
     return clients.filter((c) => {
       if (term && ![c.full_name, c.email, c.cedula, c.phone].some((v) => v?.toLowerCase().includes(term))) return false;
       if (filter === 'attention') return ['expired', 'pending', 'expiring'].includes(c.alert.code);
-      if (filter === 'founder') return c.client_type === 'founder';
+      if (filter === 'founder' || filter === 'founder_guest') return c.client_type === filter;
       if (filter !== 'all') return c.alert.code === filter;
       return true;
     });
@@ -92,9 +93,11 @@ export default function Clients() {
                         <Link to={`/admin/clientes/${c.id}`} className="group block">
                           <p className="font-medium group-hover:text-seed">
                             {c.full_name}
-                            {c.client_type === 'founder' && (
-                              <Badge tone="white" className="ml-2 align-middle">Founder</Badge>
-                            )}
+                            <ClientTypeBadge
+                              type={c.client_type}
+                              active={Boolean(c.founder_until)}
+                              className="ml-2 align-middle"
+                            />
                             {c.status !== 'active' && <Badge className="ml-2 align-middle">{c.status === 'paused' ? 'Pausa' : 'Inactivo'}</Badge>}
                           </p>
                           <p className="text-xs text-bone-dim">{c.phone} · CC {c.cedula}</p>

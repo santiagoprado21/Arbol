@@ -4,18 +4,21 @@ import { ErrorNote, PageLoader, Spinner } from '../../components/ui';
 import { api } from '../../lib/api';
 import { CLASS_TYPES, formatMoney } from '../../lib/format';
 
+const PRICE_FIELDS = ['price_regular', 'price_founder', 'price_founder_bonus'];
+
 function PlanRow({ plan, onSaved }) {
-  const [form, setForm] = useState({
+  const initial = () => ({
     price_regular: plan.price_regular,
     price_founder: plan.price_founder ?? '',
+    price_founder_bonus: plan.price_founder_bonus ?? '',
     active: plan.active,
   });
+  const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const isMembership = plan.class_type === 'membership';
   const dirty =
-    String(form.price_regular) !== String(plan.price_regular) ||
-    String(form.price_founder) !== String(plan.price_founder ?? '') ||
-    form.active !== plan.active;
+    PRICE_FIELDS.some((k) => String(form[k]) !== String(plan[k] ?? '')) || form.active !== plan.active;
 
   const save = async () => {
     setBusy(true);
@@ -30,27 +33,32 @@ function PlanRow({ plan, onSaved }) {
     }
   };
 
+  const priceInput = (key, placeholder) => (
+    <input
+      type="number"
+      min="0"
+      className="input w-32 py-2"
+      placeholder={placeholder}
+      value={form[key]}
+      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+    />
+  );
+
   return (
     <tr className={!form.active ? 'opacity-50' : ''}>
       <td className="px-5 py-3">
         <p className="font-medium">{plan.name}</p>
         <p className="text-xs text-bone-dim">
-          {CLASS_TYPES[plan.class_type].label} · {plan.sessions} sesiones · {formatMoney(form.price_regular / plan.sessions)} c/u
+          {isMembership
+            ? `${plan.duration_months} meses · habilita los beneficios Founder`
+            : `${CLASS_TYPES[plan.class_type].label} · ${plan.sessions} sesiones · ${formatMoney(form.price_regular / plan.sessions)} c/u`}
         </p>
         {error && <p className="text-xs text-red-400">{error}</p>}
       </td>
+      <td className="px-5 py-3">{priceInput('price_regular')}</td>
+      <td className="px-5 py-3">{isMembership ? <span className="text-bone-dim">—</span> : priceInput('price_founder', 'Igual a regular')}</td>
       <td className="px-5 py-3">
-        <input type="number" min="0" className="input w-36 py-2" value={form.price_regular} onChange={(e) => setForm({ ...form, price_regular: e.target.value })} />
-      </td>
-      <td className="px-5 py-3">
-        <input
-          type="number"
-          min="0"
-          className="input w-36 py-2"
-          placeholder="Igual a regular"
-          value={form.price_founder}
-          onChange={(e) => setForm({ ...form, price_founder: e.target.value })}
-        />
+        {isMembership ? <span className="text-bone-dim">—</span> : priceInput('price_founder_bonus', 'Igual a Founder')}
       </td>
       <td className="px-5 py-3">
         <input type="checkbox" className="h-4 w-4 accent-seed" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
@@ -78,15 +86,16 @@ export default function Plans() {
     <div>
       <PageHeader
         title="Planes y precios"
-        subtitle="El precio Founder se aplica automáticamente al activar un plan para clientes Founder."
+        subtitle="La tarifa se elige sola al activar un plan: regular, Founder (también para Invitados Founder) o Founder con bono mensual, que se mantiene mientras el Founder renueve su plan mes a mes."
       />
       <div className="card overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[900px] text-sm">
           <thead className="border-b border-ink-700 text-left text-xs uppercase tracking-wider text-bone-dim">
             <tr>
               <th className="px-5 py-3 font-medium">Plan</th>
-              <th className="px-5 py-3 font-medium">Precio regular</th>
-              <th className="px-5 py-3 font-medium">Precio Founder</th>
+              <th className="px-5 py-3 font-medium">Regular</th>
+              <th className="px-5 py-3 font-medium">Founder (sin bono)</th>
+              <th className="px-5 py-3 font-medium">Founder con bono</th>
               <th className="px-5 py-3 font-medium">Activo</th>
               <th className="px-5 py-3" />
             </tr>

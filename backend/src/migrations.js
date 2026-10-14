@@ -62,6 +62,36 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '2026-10-13-flex-founder-membership-freezes-evaluations',
+    run: async (db) => {
+      await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_client_type_check`);
+      await db.query(
+        `ALTER TABLE users ADD CONSTRAINT users_client_type_check
+           CHECK (client_type IN ('regular', 'founder', 'founder_guest'))`,
+      );
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS invited_by INTEGER REFERENCES users(id) ON DELETE SET NULL`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS founder_bonus_active BOOLEAN NOT NULL DEFAULT true`);
+      await db.query(
+        `CREATE UNIQUE INDEX IF NOT EXISTS users_one_guest_per_founder ON users(invited_by) WHERE invited_by IS NOT NULL`,
+      );
+
+      await db.query(`ALTER TABLE plans DROP CONSTRAINT IF EXISTS plans_class_type_check`);
+      await db.query(
+        `ALTER TABLE plans ADD CONSTRAINT plans_class_type_check CHECK (class_type IN ('personal', 'semi', 'membership'))`,
+      );
+      await db.query(`ALTER TABLE plans DROP CONSTRAINT IF EXISTS plans_sessions_check`);
+      await db.query(`ALTER TABLE plans ADD CONSTRAINT plans_sessions_check CHECK (sessions >= 0)`);
+      await db.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration_months INTEGER NOT NULL DEFAULT 1`);
+      await db.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS price_founder_bonus INTEGER`);
+      await db.query(`UPDATE plans SET name = replace(name, 'Semi-personalizado', 'FLEX') WHERE class_type = 'semi'`);
+      await db.query(`UPDATE plans SET active = false WHERE code = 'semi_4'`);
+
+      await db.query(`ALTER TABLE memberships ADD COLUMN IF NOT EXISTS price_tier TEXT`);
+      await db.query(`ALTER TABLE schedule_templates ADD COLUMN IF NOT EXISTS founders_only BOOLEAN NOT NULL DEFAULT false`);
+      await db.query(`ALTER TABLE class_slots ADD COLUMN IF NOT EXISTS founders_only BOOLEAN NOT NULL DEFAULT false`);
+    },
+  },
 ];
 
 export async function runMigrations() {

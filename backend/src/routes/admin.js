@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import { one, query, tx, TODAY, TZ } from '../db.js';
 import { HttpError, publicUser, requireAdmin, requireAuth } from '../auth.js';
-import { CONSUMING, OCCUPYING, cancelReservation, createReservation, ensureSlots } from '../booking.js';
+import { CONSUMING, OCCUPYING, cancelReservation, createEvaluation, createReservation, ensureSlots } from '../booking.js';
+import {
+  freezeMembership,
+  founderUntilSql,
+  memberStatus,
+  membershipFreezes,
+  quotePlan,
+  removeFreeze,
+} from '../membership.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -20,7 +28,8 @@ function alertFor(c) {
 
 async function clientsSummary() {
   const { rows } = await query(
-    `SELECT u.id, u.full_name, u.email, u.phone, u.cedula, u.client_type, u.status, u.created_at,
+    `SELECT u.id, u.full_name, u.email, u.phone, u.cedula, u.client_type, u.status, u.created_at, u.invited_by,
+            ${founderUntilSql('u.id')} AS founder_until,
             m.id AS membership_id, m.start_date, m.end_date, m.sessions_total, m.amount, m.payment_status,
             p.name AS plan_name, p.class_type,
             (SELECT count(*)::int FROM reservations r WHERE r.membership_id = m.id AND r.status IN ${CONSUMING})
@@ -30,7 +39,8 @@ async function clientsSummary() {
               WHERE r.user_id = u.id AND r.status = 'attended') AS last_attended
      FROM users u
      LEFT JOIN LATERAL (
-       SELECT * FROM memberships mm WHERE mm.user_id = u.id
+       SELECT mm.* FROM memberships mm JOIN plans mp ON mp.id = mm.plan_id
+       WHERE mm.user_id = u.id AND mp.class_type <> 'membership'
        ORDER BY (${TODAY} BETWEEN mm.start_date AND mm.end_date) DESC, mm.end_date DESC LIMIT 1
      ) m ON true
      LEFT JOIN plans p ON p.id = m.plan_id
@@ -44,15 +54,25 @@ router.get('/stats', async (_req, res) => {
   const [clients, active, pending, revenue, today, attendance, series, occupancy, summary] = await Promise.all([
     one(`SELECT count(*)::int AS total,
                 count(*) FILTER (WHERE client_type = 'founder')::int AS founder,
+                count(*) FILTER (WHERE client_type = 'founder_guest')::int AS founder_guest,
                 count(*) FILTER (WHERE created_at >= date_trunc('month', now()))::int AS new_this_month
          FROM users WHERE role = 'client'`),
     one(`SELECT count(DISTINCT m.user_id)::int AS n FROM memberships m
          JOIN users u ON u.id = m.user_id AND u.role = 'client'
+         JOIN plans p ON p.id = m.plan_id AND p.class_type <> 'membership'
          WHERE m.end_date >= ${TODAY}`),
-    one(`SELECT count(*)::int AS n, coalesce(sum(amount), 0)::int AS total
-         FROM memberships WHERE payment_status = 'pending'`),
-    one(`SELECT coalesce(sum(amount), 0)::int AS total FROM memberships
-         WHERE payment_status = 'paid' AND date_trunc('month', paid_at) = date_trunc('month', now())`),
+    one(`SELECT count(*)::int AS n, coalesce(sum(amount), 0)::int AS total FROM (
+           SELECT amount FROM memberships WHERE payment_status = 'pending'
+           UNION ALL
+           SELECT e.amount FROM evaluations e JOIN reservations r ON r.id = e.reservation_id
+           WHERE e.payment_status = 'pending' AND r.status <> 'cancelled'
+         ) pending`),
+    one(`SELECT coalesce(sum(amount), 0)::int AS total FROM (
+           SELECT amount, paid_at FROM memberships WHERE payment_status = 'paid'
+           UNION ALL
+           SELECT amount, paid_at FROM evaluations WHERE payment_status = 'paid'
+         ) paid
+         WHERE date_trunc('month', paid_at) = date_trunc('month', now())`),
     one(`SELECT count(*)::int AS slots, coalesce(sum(s.capacity), 0)::int AS capacity,
                 coalesce(sum((SELECT count(*) FROM reservations r WHERE r.slot_id = s.id AND r.status IN ${OCCUPYING})), 0)::int
                   AS booked
@@ -105,72 +125,170 @@ router.get('/clients/:id', async (req, res) => {
   const id = Number(req.params.id);
   const user = await one(`SELECT * FROM users WHERE id = $1`, [id]);
   if (!user) throw new HttpError(404, 'Cliente no encontrado');
-  const [memberships, reservations] = await Promise.all([
+  const db = { query };
+  const [memberships, reservations, guests, status] = await Promise.all([
     query(
       `SELECT m.*, p.name AS plan_name, p.class_type,
               (SELECT count(*)::int FROM reservations r WHERE r.membership_id = m.id AND r.status IN ${CONSUMING})
                 AS sessions_used,
-              (m.end_date - ${TODAY})::int AS days_left
+              (m.end_date - ${TODAY})::int AS days_left,
+              (SELECT e.amount FROM evaluations e WHERE e.credited_membership_id = m.id LIMIT 1) AS evaluation_credit
        FROM memberships m JOIN plans p ON p.id = m.plan_id
        WHERE m.user_id = $1 ORDER BY m.start_date DESC`,
       [id],
     ),
     query(
-      `SELECT r.id, r.status, r.created_at, s.starts_at, s.class_type
+      `SELECT r.id, r.status, r.created_at, s.starts_at, s.class_type,
+              e.id AS evaluation_id, e.amount AS evaluation_amount, e.payment_status AS evaluation_payment,
+              e.credited_membership_id
        FROM reservations r JOIN class_slots s ON s.id = r.slot_id
+       LEFT JOIN evaluations e ON e.reservation_id = r.id
        WHERE r.user_id = $1 ORDER BY s.starts_at DESC LIMIT 60`,
       [id],
     ),
+    query(`SELECT id, full_name FROM users WHERE invited_by = $1 ORDER BY full_name`, [id]),
+    memberStatus(db, id),
   ]);
-  res.json({ user: publicUser(user), memberships: memberships.rows, reservations: reservations.rows });
+  const freezes = await membershipFreezes(db, memberships.rows.map((m) => m.id));
+  res.json({
+    user: publicUser(user),
+    status,
+    guests: guests.rows,
+    memberships: memberships.rows.map((m) => ({ ...m, freezes: freezes[m.id] || [] })),
+    reservations: reservations.rows,
+  });
 });
 
 router.patch('/clients/:id', async (req, res) => {
-  const allowed = ['full_name', 'phone', 'cedula', 'client_type', 'status', 'medical_notes', 'admin_notes'];
-  const entries = Object.entries(req.body || {}).filter(([k]) => allowed.includes(k));
-  if (entries.length === 0) throw new HttpError(400, 'Nada para actualizar');
+  const id = Number(req.params.id);
+  const allowed = [
+    'full_name', 'phone', 'cedula', 'client_type', 'status', 'medical_notes', 'admin_notes',
+    'invited_by', 'founder_bonus_active',
+  ];
+  const body = Object.fromEntries(
+    Object.entries(req.body || {})
+      .filter(([k]) => allowed.includes(k))
+      .map(([k, v]) => [k, v === '' ? null : v]),
+  );
+  if (Object.keys(body).length === 0) throw new HttpError(400, 'Nada para actualizar');
+
+  const current = await one(`SELECT client_type FROM users WHERE id = $1 AND role = 'client'`, [id]);
+  if (!current) throw new HttpError(404, 'Cliente no encontrado');
+  if ((body.client_type ?? current.client_type) !== 'founder_guest') {
+    body.invited_by = null;
+  } else if (body.invited_by != null) {
+    const hostId = Number(body.invited_by);
+    const host = await one(`SELECT client_type FROM users WHERE id = $1 AND role = 'client'`, [hostId]);
+    if (!host || host.client_type !== 'founder' || hostId === id) {
+      throw new HttpError(400, 'El anfitrión debe ser otro cliente Founder');
+    }
+    const other = await one(`SELECT full_name FROM users WHERE invited_by = $1 AND id <> $2`, [hostId, id]);
+    if (other) throw new HttpError(409, `Ese Founder ya tiene como invitado a ${other.full_name}`);
+    body.invited_by = hostId;
+  }
+
+  const entries = Object.entries(body);
   const sets = entries.map(([k], i) => `${k} = $${i + 2}`).join(', ');
   const user = await one(
     `UPDATE users SET ${sets} WHERE id = $1 AND role = 'client' RETURNING *`,
-    [Number(req.params.id), ...entries.map(([, v]) => (v === '' ? null : v))],
+    [id, ...entries.map(([, v]) => v)],
+  );
+  res.json({ user: publicUser(user) });
+});
+
+async function loadQuoteInputs(db, userId, b) {
+  const { rows: [plan] } = await db.query('SELECT * FROM plans WHERE id = $1', [Number(b.plan_id)]);
+  if (!plan) throw new HttpError(400, 'Plan inválido');
+  const { rows: [user] } = await db.query(
+    `SELECT client_type, ${TODAY}::text AS today FROM users WHERE id = $1 AND role = 'client'`,
+    [userId],
   );
   if (!user) throw new HttpError(404, 'Cliente no encontrado');
-  res.json({ user: publicUser(user) });
+  return { plan, user, startDate: isDate(b.start_date) ? b.start_date : user.today };
+}
+
+router.get('/clients/:id/quote', async (req, res) => {
+  const db = { query };
+  const userId = Number(req.params.id);
+  const { plan, startDate } = await loadQuoteInputs(db, userId, req.query);
+  res.json({ quote: await quotePlan(db, userId, plan, startDate) });
 });
 
 router.post('/clients/:id/memberships', async (req, res) => {
   const userId = Number(req.params.id);
   const b = req.body || {};
-  const plan = await one('SELECT * FROM plans WHERE id = $1', [Number(b.plan_id)]);
-  if (!plan) throw new HttpError(400, 'Plan inválido');
-  const user = await one(`SELECT client_type FROM users WHERE id = $1 AND role = 'client'`, [userId]);
-  if (!user) throw new HttpError(404, 'Cliente no encontrado');
-
-  const defaultAmount =
-    user.client_type === 'founder' && plan.price_founder != null ? plan.price_founder : plan.price_regular;
-  const paid = b.payment_status === 'paid';
-  const membership = await one(
-    `INSERT INTO memberships
-       (user_id, plan_id, start_date, end_date, sessions_total, amount, payment_status, payment_method,
-        payment_reference, paid_at, notes)
-     VALUES ($1, $2, coalesce($3::date, ${TODAY}),
-             coalesce($4::date, (coalesce($3::date, ${TODAY}) + interval '1 month' - interval '1 day')::date),
-             $5, $6, $7, $8, $9, CASE WHEN $7 = 'paid' THEN now() END, $10)
-     RETURNING *`,
-    [
-      userId,
-      plan.id,
-      isDate(b.start_date) ? b.start_date : null,
-      isDate(b.end_date) ? b.end_date : null,
-      Number(b.sessions_total) || plan.sessions,
-      b.amount === undefined || b.amount === '' ? defaultAmount : Number(b.amount),
-      paid ? 'paid' : 'pending',
-      b.payment_method || null,
-      b.payment_reference || null,
-      b.notes || null,
-    ],
-  );
+  const membership = await tx(async (db) => {
+    const { plan, user, startDate } = await loadQuoteInputs(db, userId, b);
+    const quote = await quotePlan(db, userId, plan, startDate);
+    const customAmount = b.amount !== undefined && b.amount !== '';
+    const { rows: [m] } = await db.query(
+      `INSERT INTO memberships
+         (user_id, plan_id, start_date, end_date, sessions_total, amount, price_tier, payment_status,
+          payment_method, payment_reference, paid_at, notes)
+       VALUES ($1, $2, $3::date,
+               coalesce($4::date, ($3::date + make_interval(months => $5) - interval '1 day')::date),
+               $6, $7, $8, $9, $10, $11, CASE WHEN $9 = 'paid' THEN now() END, $12)
+       RETURNING *`,
+      [
+        userId,
+        plan.id,
+        startDate,
+        isDate(b.end_date) ? b.end_date : null,
+        plan.duration_months,
+        Number(b.sessions_total) || plan.sessions,
+        customAmount ? Number(b.amount) : quote.amount,
+        quote.tier,
+        b.payment_status === 'paid' ? 'paid' : 'pending',
+        b.payment_method || null,
+        b.payment_reference || null,
+        b.notes || null,
+      ],
+    );
+    if (quote.evaluation_id) {
+      await db.query(`UPDATE evaluations SET credited_membership_id = $2 WHERE id = $1`, [quote.evaluation_id, m.id]);
+    }
+    if (quote.loses_bonus) {
+      await db.query(`UPDATE users SET founder_bonus_active = false WHERE id = $1`, [userId]);
+    }
+    if (plan.class_type === 'membership' && user.client_type !== 'founder') {
+      await db.query(`UPDATE users SET client_type = 'founder', invited_by = NULL WHERE id = $1`, [userId]);
+    }
+    return m;
+  });
   res.status(201).json({ membership });
+});
+
+router.post('/memberships/:id/freezes', async (req, res) => {
+  const b = req.body || {};
+  const result = await tx((db) =>
+    freezeMembership(db, Number(req.params.id), { startDate: b.start_date, days: b.days, reason: b.reason }),
+  );
+  res.status(201).json(result);
+});
+
+router.delete('/freezes/:id', async (req, res) => {
+  await tx((db) => removeFreeze(db, Number(req.params.id)));
+  res.status(204).end();
+});
+
+router.post('/evaluations', async (req, res) => {
+  const result = await tx((db) =>
+    createEvaluation(db, Number(req.body?.user_id), Number(req.body?.slot_id), { asAdmin: true }),
+  );
+  res.status(201).json(result);
+});
+
+router.patch('/evaluations/:id', async (req, res) => {
+  const b = req.body || {};
+  if (!['paid', 'pending'].includes(b.payment_status)) throw new HttpError(400, 'Estado de pago inválido');
+  const evaluation = await one(
+    `UPDATE evaluations SET payment_status = $2, payment_method = coalesce($3, payment_method),
+            paid_at = CASE WHEN $2 = 'paid' THEN coalesce(paid_at, now()) END
+     WHERE id = $1 RETURNING *`,
+    [Number(req.params.id), b.payment_status, b.payment_method || null],
+  );
+  if (!evaluation) throw new HttpError(404, 'Valoración no encontrada');
+  res.json({ evaluation });
 });
 
 router.patch('/memberships/:id', async (req, res) => {
@@ -209,14 +327,16 @@ router.get('/agenda', async (req, res) => {
   await ensureSlots();
   const date = isDate(req.query.date) ? req.query.date : null;
   const { rows } = await query(
-    `SELECT s.id, s.starts_at, s.ends_at, s.class_type, s.capacity, s.status,
+    `SELECT s.id, s.starts_at, s.ends_at, s.class_type, s.capacity, s.status, s.founders_only,
             coalesce(json_agg(json_build_object(
               'id', r.id, 'status', r.status, 'user_id', u.id, 'full_name', u.full_name, 'phone', u.phone,
-              'client_type', u.client_type
+              'client_type', u.client_type, 'founder', u.client_type = 'founder' AND ${founderUntilSql('u.id')} IS NOT NULL,
+              'is_evaluation', e.id IS NOT NULL
             ) ORDER BY u.full_name) FILTER (WHERE r.id IS NOT NULL), '[]') AS attendees
      FROM class_slots s
      LEFT JOIN reservations r ON r.slot_id = s.id AND r.status <> 'cancelled'
      LEFT JOIN users u ON u.id = r.user_id
+     LEFT JOIN evaluations e ON e.reservation_id = r.id
      WHERE (s.starts_at AT TIME ZONE '${TZ}')::date = coalesce($1::date, ${TODAY})
      GROUP BY s.id ORDER BY s.starts_at, s.class_type`,
     [date],
@@ -227,12 +347,14 @@ router.get('/agenda', async (req, res) => {
 router.patch('/slots/:id', async (req, res) => {
   const b = req.body || {};
   const slot = await one(
-    `UPDATE class_slots SET status = coalesce($2, status), capacity = coalesce($3, capacity)
+    `UPDATE class_slots SET status = coalesce($2, status), capacity = coalesce($3, capacity),
+            founders_only = coalesce($4, founders_only)
      WHERE id = $1 RETURNING *`,
     [
       Number(req.params.id),
       ['open', 'cancelled'].includes(b.status) ? b.status : null,
       b.capacity ? Number(b.capacity) : null,
+      typeof b.founders_only === 'boolean' ? b.founders_only : null,
     ],
   );
   if (!slot) throw new HttpError(404, 'Horario no encontrado');
@@ -245,7 +367,7 @@ router.patch('/slots/:id', async (req, res) => {
 
 router.post('/reservations', async (req, res) => {
   const reservation = await tx((db) =>
-    createReservation(db, Number(req.body?.user_id), Number(req.body?.slot_id)),
+    createReservation(db, Number(req.body?.user_id), Number(req.body?.slot_id), { asAdmin: true }),
   );
   res.status(201).json({ reservation });
 });
@@ -282,14 +404,23 @@ router.post('/templates', async (req, res) => {
   if (weekdays.some((d) => !(d >= 0 && d <= 6))) throw new HttpError(400, 'Día inválido');
   const capacity = Number(b.capacity) || (b.class_type === 'semi' ? 6 : 1);
   const duration = Number(b.duration_min) || 60;
+  const foundersOnly = b.founders_only === true;
 
   for (const weekday of weekdays) {
     await query(
-      `INSERT INTO schedule_templates (weekday, start_time, duration_min, class_type, capacity)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO schedule_templates (weekday, start_time, duration_min, class_type, capacity, founders_only)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (weekday, start_time, class_type)
-       DO UPDATE SET active = true, capacity = EXCLUDED.capacity, duration_min = EXCLUDED.duration_min`,
-      [weekday, b.start_time, duration, b.class_type, capacity],
+       DO UPDATE SET active = true, capacity = EXCLUDED.capacity, duration_min = EXCLUDED.duration_min,
+                     founders_only = EXCLUDED.founders_only`,
+      [weekday, b.start_time, duration, b.class_type, capacity, foundersOnly],
+    );
+    await query(
+      `UPDATE class_slots SET founders_only = $4
+       WHERE starts_at > now() AND class_type = $1
+         AND extract(dow FROM starts_at AT TIME ZONE '${TZ}')::int = $2
+         AND to_char(starts_at AT TIME ZONE '${TZ}', 'HH24:MI') = $3`,
+      [b.class_type, weekday, b.start_time, foundersOnly],
     );
   }
   await ensureSlots();
@@ -314,7 +445,9 @@ router.delete('/templates/:id', async (req, res) => {
 });
 
 router.get('/plans', async (_req, res) => {
-  const { rows } = await query(`SELECT * FROM plans ORDER BY class_type DESC, sessions`);
+  const { rows } = await query(
+    `SELECT * FROM plans ORDER BY class_type = 'membership' DESC, class_type DESC, sessions`,
+  );
   res.json({ plans: rows });
 });
 
@@ -326,9 +459,17 @@ router.patch('/plans/:id', async (req, res) => {
        name = coalesce($2, name),
        price_regular = coalesce($3, price_regular),
        price_founder = $4,
-       active = coalesce($5, active)
+       price_founder_bonus = $5,
+       active = coalesce($6, active)
      WHERE id = $1 RETURNING *`,
-    [Number(req.params.id), b.name || null, num(b.price_regular), num(b.price_founder), b.active ?? null],
+    [
+      Number(req.params.id),
+      b.name || null,
+      num(b.price_regular),
+      num(b.price_founder),
+      num(b.price_founder_bonus),
+      b.active ?? null,
+    ],
   );
   if (!plan) throw new HttpError(404, 'Plan no encontrado');
   res.json({ plan });
