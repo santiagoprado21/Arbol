@@ -83,7 +83,7 @@ function MembershipForm({ client, plans, initialPlanId, onDone }) {
         </div>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Inicio" hint={plan?.duration_months === 12 ? 'Vence 12 meses después' : 'Vence un mes después'}>
+        <Field label="Inicio" hint={(plan?.duration_months ?? 1) > 1 ? `Vence ${plan.duration_months} meses después` : 'Vence un mes después'}>
           <input type="date" className="input" value={form.start_date} onChange={set('start_date')} required />
         </Field>
         <Field label="Valor" hint={quote ? `Sugerido: ${formatMoney(quote.amount)}` : ' '}>

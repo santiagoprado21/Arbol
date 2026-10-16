@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthLayout from './AuthLayout';
-import { ErrorNote, Field, Spinner } from '../components/ui';
+import { ErrorNote, Field, Modal, Spinner } from '../components/ui';
+import Terms from '../components/Terms';
 import { useAuth } from '../context/AuthContext';
 
 const EMPTY = {
@@ -11,7 +12,6 @@ const EMPTY = {
   email: '',
   password: '',
   medical_notes: '',
-  accept_terms: false,
 };
 
 export default function Register() {
@@ -20,18 +20,24 @@ export default function Register() {
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const set = (key) => (e) =>
     setForm({ ...form, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
 
-  const onSubmit = async (e) => {
+  const onSubmit = (e) => {
     e.preventDefault();
     setError('');
+    setShowTerms(true);
+  };
+
+  const acceptAndRegister = async () => {
     setBusy(true);
     try {
-      await register(form);
+      await register({ ...form, accept_terms: true });
       navigate('/app', { replace: true });
     } catch (err) {
+      setShowTerms(false);
       setError(err.message);
     } finally {
       setBusy(false);
@@ -79,25 +85,24 @@ export default function Register() {
           />
         </Field>
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-ink-600 bg-ink-850 p-4">
-          <input
-            type="checkbox"
-            required
-            checked={form.accept_terms}
-            onChange={set('accept_terms')}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-seed"
-          />
-          <span className="text-xs leading-relaxed text-bone-muted">
-            Acepto las políticas de reserva, las reglas de cancelación y no-show (12 horas) y la exoneración médica de
-            Árbol Private Studio. Declaro que la información de salud suministrada es veraz.
-          </span>
-        </label>
-
         <ErrorNote>{error}</ErrorNote>
-        <button className="btn-primary w-full py-3" disabled={busy}>
-          {busy ? <Spinner className="h-4 w-4 text-white" /> : 'Crear mi perfil'}
-        </button>
+        <button className="btn-primary w-full py-3">Continuar</button>
+        <p className="text-center text-xs text-bone-dim">Antes de crear tu cuenta te mostraremos los términos y condiciones.</p>
       </form>
+
+      <Modal open={showTerms} onClose={() => !busy && setShowTerms(false)} title="Términos y condiciones" wide>
+        <div className="max-h-[55vh] overflow-y-auto pr-2">
+          <Terms />
+        </div>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
+          <button className="btn-ghost flex-1" disabled={busy} onClick={() => setShowTerms(false)}>
+            Volver
+          </button>
+          <button className="btn-primary flex-1" disabled={busy} onClick={acceptAndRegister}>
+            {busy ? <Spinner className="h-4 w-4 text-white" /> : 'Aceptar y crear mi cuenta'}
+          </button>
+        </div>
+      </Modal>
     </AuthLayout>
   );
 }

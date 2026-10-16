@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { one, query, tx, TODAY, TZ } from '../db.js';
 import { HttpError, publicUser, requireAdmin, requireAuth } from '../auth.js';
-import { CONSUMING, OCCUPYING, cancelReservation, createEvaluation, createReservation, ensureSlots } from '../booking.js';
+import { CONSUMING, FLEX_MAX_CAPACITY, OCCUPYING, cancelReservation, createEvaluation, createReservation, ensureSlots } from '../booking.js';
 import {
   freezeMembership,
   founderUntilSql,
@@ -346,6 +346,12 @@ router.get('/agenda', async (req, res) => {
 
 router.patch('/slots/:id', async (req, res) => {
   const b = req.body || {};
+  if (b.capacity) {
+    const current = await one('SELECT class_type FROM class_slots WHERE id = $1', [Number(req.params.id)]);
+    if (current?.class_type === 'semi' && Number(b.capacity) > FLEX_MAX_CAPACITY) {
+      throw new HttpError(400, `Las clases FLEX tienen máximo ${FLEX_MAX_CAPACITY} cupos`);
+    }
+  }
   const slot = await one(
     `UPDATE class_slots SET status = coalesce($2, status), capacity = coalesce($3, capacity),
             founders_only = coalesce($4, founders_only)
@@ -402,7 +408,10 @@ router.post('/templates', async (req, res) => {
   if (!/^\d{2}:\d{2}$/.test(b.start_time || '')) throw new HttpError(400, 'Hora inválida (HH:MM)');
   if (!['semi', 'personal'].includes(b.class_type)) throw new HttpError(400, 'Tipo de clase inválido');
   if (weekdays.some((d) => !(d >= 0 && d <= 6))) throw new HttpError(400, 'Día inválido');
-  const capacity = Number(b.capacity) || (b.class_type === 'semi' ? 6 : 1);
+  const capacity = Number(b.capacity) || (b.class_type === 'semi' ? FLEX_MAX_CAPACITY : 1);
+  if (b.class_type === 'semi' && capacity > FLEX_MAX_CAPACITY) {
+    throw new HttpError(400, `Las clases FLEX tienen máximo ${FLEX_MAX_CAPACITY} cupos`);
+  }
   const duration = Number(b.duration_min) || 60;
   const foundersOnly = b.founders_only === true;
 
@@ -449,6 +458,36 @@ router.get('/plans', async (_req, res) => {
     `SELECT * FROM plans ORDER BY class_type = 'membership' DESC, class_type DESC, sessions`,
   );
   res.json({ plans: rows });
+});
+
+router.post('/plans', async (req, res) => {
+  const b = req.body || {};
+  const num = (v) => (v === '' || v == null ? null : Number(v));
+  const name = typeof b.name === 'string' ? b.name.trim() : '';
+  if (!name) throw new HttpError(400, 'Ponle un nombre al plan');
+  if (!['semi', 'personal'].includes(b.class_type)) throw new HttpError(400, 'Modalidad inválida');
+  const sessions = Number(b.sessions);
+  const months = Number(b.duration_months) || 1;
+  const price = Number(b.price_regular);
+  if (!Number.isInteger(sessions) || sessions < 1) throw new HttpError(400, 'Número de sesiones inválido');
+  if (!Number.isInteger(months) || months < 1 || months > 12) throw new HttpError(400, 'Duración inválida (1 a 12 meses)');
+  if (!(price >= 0)) throw new HttpError(400, 'Precio inválido');
+
+  const plan = await one(
+    `INSERT INTO plans (code, name, class_type, sessions, duration_months, price_regular, price_founder, price_founder_bonus)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [
+      `${b.class_type}_${sessions}_${Date.now().toString(36)}`,
+      name,
+      b.class_type,
+      sessions,
+      months,
+      price,
+      num(b.price_founder),
+      num(b.price_founder_bonus),
+    ],
+  );
+  res.status(201).json({ plan });
 });
 
 router.patch('/plans/:id', async (req, res) => {

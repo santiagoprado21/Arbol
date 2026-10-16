@@ -76,7 +76,7 @@ function TemplateForm({ onDone }) {
           </select>
         </Field>
         <Field label="Cupo máximo">
-          <input type="number" min="1" max="20" className="input" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
+          <input type="number" min="1" max={form.class_type === 'semi' ? 6 : 20} className="input" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) })} />
         </Field>
       </div>
       <label className="flex items-start gap-3 rounded-xl border border-ink-600 p-3">

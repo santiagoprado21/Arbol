@@ -244,7 +244,9 @@ export default function Landing() {
                 <p className="text-sm text-bone-muted">
                   {planType === 'semi' ? 'FLEX' : 'Personalizado 1:1'}
                 </p>
-                <p className="mt-2 text-2xl font-semibold">{plan.sessions} sesiones / mes</p>
+                <p className="mt-2 text-2xl font-semibold">
+                  {plan.sessions} sesiones {(plan.duration_months ?? 1) > 1 ? `· ${plan.duration_months} meses` : '/ mes'}
+                </p>
                 <p className="mt-6 text-4xl font-semibold tracking-tight">{formatMoney(plan.price_regular)}</p>
                 <p className="mt-1 text-xs text-bone-dim">
                   {formatMoney(Math.round(plan.price_regular / plan.sessions))} por sesión

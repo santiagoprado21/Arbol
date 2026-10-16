@@ -4,6 +4,7 @@ import { EVALUATION_PRICE, memberStatus } from './membership.js';
 
 export const LATE_CANCEL_HOURS = 12;
 export const SLOT_GENERATION_DAYS = 21;
+export const FLEX_MAX_CAPACITY = 6;
 
 // Statuses that consume a session from the client's plan.
 export const CONSUMING = `('booked','attended','no_show','late_cancel')`;
@@ -73,7 +74,8 @@ export async function createReservation(db, userId, slotId, { allowPersonal = tr
   if (slot.founders_only && !status.founder && !asAdmin) {
     throw new HttpError(403, 'Este horario es exclusivo para Founders');
   }
-  if (taken >= slot.capacity) throw new HttpError(409, 'Este horario ya está lleno');
+  const capacity = slot.class_type === 'semi' ? Math.min(slot.capacity, FLEX_MAX_CAPACITY) : slot.capacity;
+  if (taken >= capacity) throw new HttpError(409, 'Este horario ya está lleno');
 
   const { rows: memberships } = await db.query(
     `SELECT m.id, m.sessions_total,

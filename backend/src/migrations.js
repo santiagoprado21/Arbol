@@ -92,6 +92,27 @@ const MIGRATIONS = [
       await db.query(`ALTER TABLE class_slots ADD COLUMN IF NOT EXISTS founders_only BOOLEAN NOT NULL DEFAULT false`);
     },
   },
+  {
+    id: '2026-10-16-flex-max-6-and-studio-admins',
+    run: async (db) => {
+      await db.query(`UPDATE schedule_templates SET capacity = 6 WHERE class_type = 'semi' AND capacity > 6`);
+      await db.query(`UPDATE class_slots SET capacity = 6 WHERE class_type = 'semi' AND capacity > 6`);
+
+      // Only bcrypt hashes live here; an existing account with the same email is promoted to admin.
+      const admins = [
+        ['Administrador Árbol', 'nata15tkd@hotmail.com', '$2a$12$on2NSneLwNmXSQmxU7RPYO07ocmyb46lJ/7ZqYV6bv1o.rFTgH7Cy'],
+        ['Árbol Private Gym', 'arbolprivategym@gmail.com', '$2a$12$E.Ct2ZON59sklXuZvBQUEuYbBxJhi2tIlVvbd5ADqum9BYtWR8Oim'],
+      ];
+      for (const [name, email, hash] of admins) {
+        await db.query(
+          `INSERT INTO users (full_name, email, password_hash, role, accepted_terms_at)
+           VALUES ($1, $2, $3, 'admin', now())
+           ON CONFLICT (email) DO UPDATE SET role = 'admin', password_hash = EXCLUDED.password_hash`,
+          [name, email, hash],
+        );
+      }
+    },
+  },
 ];
 
 export async function runMigrations() {
