@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, CalendarDays, Clock, LogOut, MessageCircle, Snowflake, Sprout, Users } from 'lucide-react';
+import { Activity, CalendarDays, Clock, LogOut, MessageCircle, QrCode as QrCodeIcon, Snowflake, Sprout, Users } from 'lucide-react';
 import Logo from '../../components/Logo';
+import QrCode from '../../components/QrCode';
 import { Badge, ClientTypeBadge, EmptyState, ErrorNote, Field, Modal, PageLoader, ProgressBar, Spinner } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
@@ -157,6 +158,7 @@ export default function ClientHome() {
   const [confirmation, setConfirmation] = useState(null);
   const [freezing, setFreezing] = useState(null);
   const [evaluationOpen, setEvaluationOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const load = useCallback(async () => {
     const [m, s, r] = await Promise.all([
@@ -257,9 +259,14 @@ export default function ClientHome() {
       <header className="sticky top-0 z-30 border-b border-ink-700 bg-black/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-5">
           <Link to="/"><Logo variant="wordmark" className="h-6 w-auto" /></Link>
-          <button onClick={logout} className="flex items-center gap-2 text-sm text-bone-muted hover:text-bone">
-            <LogOut className="h-4 w-4" /> Salir
-          </button>
+          <div className="flex items-center gap-4">
+            <button onClick={() => setQrOpen(true)} className="btn-ghost btn-sm">
+              <QrCodeIcon className="h-4 w-4" /> Mi QR
+            </button>
+            <button onClick={logout} className="flex items-center gap-2 text-sm text-bone-muted hover:text-bone">
+              <LogOut className="h-4 w-4" /> Salir
+            </button>
+          </div>
         </div>
       </header>
 
@@ -568,6 +575,16 @@ export default function ClientHome() {
             }}
           />
         )}
+      </Modal>
+
+      <Modal open={qrOpen} onClose={() => setQrOpen(false)} title="Mi QR de ingreso">
+        <div className="space-y-4 text-center">
+          <QrCode value={`arbol:checkin:${user.checkin_token}`} className="mx-auto aspect-square w-full max-w-[280px] p-2" alt="Tu código QR de ingreso" />
+          <p className="font-medium">{user.full_name}</p>
+          <p className="text-sm text-bone-muted">
+            Muéstralo a tu coach al llegar a clase para confirmar tu asistencia. Sube el brillo de la pantalla si no lo lee.
+          </p>
+        </div>
       </Modal>
 
       <Modal open={evaluationOpen} onClose={() => setEvaluationOpen(false)} title={EVALUATION_LABEL}>

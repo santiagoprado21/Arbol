@@ -371,6 +371,42 @@ router.patch('/slots/:id', async (req, res) => {
   res.json({ slot });
 });
 
+// A scan confirms the reservation of a class starting up to 60 min from now or that started up to 90 min ago.
+router.post('/checkin', async (req, res) => {
+  const raw = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+  const token = raw.replace(/^arbol:checkin:/, '');
+  const user = token && (await one(
+    `SELECT id, full_name, client_type, status FROM users WHERE checkin_token = $1 AND role = 'client'`,
+    [token],
+  ));
+  if (!user) throw new HttpError(404, 'Este código QR no pertenece a ningún atleta de Árbol');
+
+  const result = await tx(async (db) => {
+    const { rows: [r] } = await db.query(
+      `SELECT r.id, r.status, s.starts_at, s.class_type, e.id IS NOT NULL AS is_evaluation
+       FROM reservations r JOIN class_slots s ON s.id = r.slot_id
+       LEFT JOIN evaluations e ON e.reservation_id = r.id
+       WHERE r.user_id = $1 AND r.status IN ('booked', 'attended') AND s.status = 'open'
+         AND s.starts_at BETWEEN now() - interval '90 minutes' AND now() + interval '60 minutes'
+       ORDER BY abs(extract(epoch FROM s.starts_at - now()))
+       LIMIT 1
+       FOR UPDATE OF r`,
+      [user.id],
+    );
+    if (!r) return { result: 'no_reservation' };
+    if (r.status === 'attended') return { result: 'already', reservation: r };
+    await db.query(`UPDATE reservations SET status = 'attended' WHERE id = $1`, [r.id]);
+    return { result: 'confirmed', reservation: { ...r, status: 'attended' } };
+  });
+
+  const { rows: [next] } = await query(
+    `SELECT s.starts_at, s.class_type FROM reservations r JOIN class_slots s ON s.id = r.slot_id
+     WHERE r.user_id = $1 AND r.status = 'booked' AND s.starts_at > now() ORDER BY s.starts_at LIMIT 1`,
+    [user.id],
+  );
+  res.json({ ...result, user, next_reservation: next || null });
+});
+
 router.post('/reservations', async (req, res) => {
   const reservation = await tx((db) =>
     createReservation(db, Number(req.body?.user_id), Number(req.body?.slot_id), { asAdmin: true }),

@@ -14,6 +14,8 @@ const ClientDetail = lazy(() => import('./pages/admin/ClientDetail'));
 const Agenda = lazy(() => import('./pages/admin/Agenda'));
 const Schedule = lazy(() => import('./pages/admin/Schedule'));
 const Plans = lazy(() => import('./pages/admin/Plans'));
+const Checkin = lazy(() => import('./pages/admin/Checkin'));
+const Links = lazy(() => import('./pages/Links'));
 
 export default function App() {
   return (
@@ -22,6 +24,7 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/ingresar" element={<Login />} />
         <Route path="/registro" element={<Register />} />
+        <Route path="/enlaces" element={<Links />} />
         <Route
           path="/app"
           element={
@@ -42,6 +45,7 @@ export default function App() {
           <Route path="clientes" element={<Clients />} />
           <Route path="clientes/:id" element={<ClientDetail />} />
           <Route path="agenda" element={<Agenda />} />
+          <Route path="checkin" element={<Checkin />} />
           <Route path="horarios" element={<Schedule />} />
           <Route path="planes" element={<Plans />} />
         </Route>

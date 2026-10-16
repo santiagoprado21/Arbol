@@ -113,6 +113,15 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '2026-10-16-checkin-qr-token',
+    run: async (db) => {
+      await db.query(
+        `ALTER TABLE users ADD COLUMN IF NOT EXISTS checkin_token TEXT NOT NULL DEFAULT gen_random_uuid()::text`,
+      );
+      await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_checkin_token_key ON users(checkin_token)`);
+    },
+  },
 ];
 
 export async function runMigrations() {

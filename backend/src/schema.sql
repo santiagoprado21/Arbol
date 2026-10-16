@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   status               TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'inactive')),
   invited_by           INTEGER REFERENCES users(id) ON DELETE SET NULL,
   founder_bonus_active BOOLEAN NOT NULL DEFAULT true,
+  checkin_token        TEXT NOT NULL UNIQUE DEFAULT gen_random_uuid()::text,
   medical_notes        TEXT,
   admin_notes          TEXT,
   accepted_terms_at    TIMESTAMPTZ,

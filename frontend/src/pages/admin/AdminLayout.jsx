@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { CalendarClock, CalendarDays, LayoutDashboard, LogOut, Menu, Tags, Users, X } from 'lucide-react';
+import { CalendarClock, CalendarDays, LayoutDashboard, LogOut, Menu, ScanLine, Tags, Users, X } from 'lucide-react';
 import Logo from '../../components/Logo';
 import { useAuth } from '../../context/AuthContext';
 
@@ -8,6 +8,7 @@ const NAV = [
   { to: '/admin', end: true, icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/clientes', icon: Users, label: 'Clientes' },
   { to: '/admin/agenda', icon: CalendarDays, label: 'Agenda del día' },
+  { to: '/admin/checkin', icon: ScanLine, label: 'Check-in QR' },
   { to: '/admin/horarios', icon: CalendarClock, label: 'Horarios' },
   { to: '/admin/planes', icon: Tags, label: 'Planes y precios' },
 ];

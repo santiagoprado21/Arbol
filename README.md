@@ -30,6 +30,8 @@ Admin local por defecto: `admin@arbol.co` / `arbol123`. Para empezar de cero, bo
 - Congelamiento por plan: regulares 1 vez hasta 7 días; Founders 2 veces hasta 21 días. El cliente lo solicita desde la app (desde mañana); el admin puede congelar sin límites. Los días congelados extienden el vencimiento y cancelan las reservas de esas fechas sin descontar sesiones.
 - **Valoración biomecánica y prueba**: $50.000, se agenda solo en franjas 1:1 libres (no Founders Only). Una vez pagada, se abona al siguiente plan que compre el cliente.
 - Ajustes rápidos (días, límites, precio de la valoración) en `backend/src/membership.js`.
+- **Check-in con QR**: cada atleta tiene su QR en "Mi QR". En el panel (Check-in QR) el admin lo escanea con la cámara: confirma (marca "Asistió") la reserva de una clase que empieza dentro de 60 min o empezó hace menos de 90 min; si no hay, muestra "No tenía reserva".
+- **QR de la entrada**: `/enlaces` es una página pública con accesos a la web, Instagram (`VITE_INSTAGRAM`) y WhatsApp. Su QR se descarga desde la página de Check-in.
 - Cambios de esquema o de datos van en `backend/src/migrations.js` y se aplican una sola vez al arrancar la API.
 
 ## Despliegue
