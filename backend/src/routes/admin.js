@@ -10,6 +10,7 @@ import {
   quotePlan,
   removeFreeze,
 } from '../membership.js';
+import { notifyReservation } from '../notify.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -276,6 +277,7 @@ router.post('/evaluations', async (req, res) => {
   const result = await tx((db) =>
     createEvaluation(db, Number(req.body?.user_id), Number(req.body?.slot_id), { asAdmin: true }),
   );
+  notifyReservation(result.reservation.id, 'booked', { byAdmin: true });
   res.status(201).json(result);
 });
 
@@ -413,13 +415,16 @@ router.post('/reservations', async (req, res) => {
   const reservation = await tx((db) =>
     createReservation(db, Number(req.body?.user_id), Number(req.body?.slot_id), { asAdmin: true }),
   );
+  notifyReservation(reservation.id, 'booked', { byAdmin: true });
   res.status(201).json({ reservation });
 });
 
 router.patch('/reservations/:id', async (req, res) => {
   const status = req.body?.status;
   if (status === 'cancelled') {
-    const result = await tx((db) => cancelReservation(db, Number(req.params.id), { asAdmin: true }));
+    const id = Number(req.params.id);
+    const result = await tx((db) => cancelReservation(db, id, { asAdmin: true }));
+    notifyReservation(id, 'cancelled', { byAdmin: true });
     return res.json(result);
   }
   if (!['booked', 'attended', 'no_show', 'late_cancel'].includes(status)) {

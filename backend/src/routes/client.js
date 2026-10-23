@@ -20,6 +20,7 @@ import {
   memberStatus,
   membershipFreezes,
 } from '../membership.js';
+import { notifyReservation } from '../notify.js';
 
 const router = Router();
 
@@ -130,16 +131,20 @@ router.post('/reservations', async (req, res) => {
   const reservation = await tx((db) =>
     createReservation(db, req.user.id, Number(req.body?.slot_id)),
   );
+  notifyReservation(reservation.id, 'booked');
   res.status(201).json({ reservation });
 });
 
 router.post('/evaluations', async (req, res) => {
   const result = await tx((db) => createEvaluation(db, req.user.id, Number(req.body?.slot_id)));
+  notifyReservation(result.reservation.id, 'booked');
   res.status(201).json(result);
 });
 
 router.delete('/reservations/:id', async (req, res) => {
-  const result = await tx((db) => cancelReservation(db, Number(req.params.id), { userId: req.user.id }));
+  const id = Number(req.params.id);
+  const result = await tx((db) => cancelReservation(db, id, { userId: req.user.id }));
+  notifyReservation(id, 'cancelled');
   res.json(result);
 });
 

@@ -33,6 +33,7 @@ Admin local por defecto: `admin@arbol.co` / `arbol123`. Para empezar de cero, bo
 - Ajustes rápidos (días, límites, precio de la valoración) en `backend/src/membership.js`.
 - **Check-in con QR**: cada atleta tiene su QR en "Mi QR". En el panel (Check-in QR) el admin lo escanea con la cámara: confirma (marca "Asistió") la reserva de una clase que empieza dentro de 60 min o empezó hace menos de 90 min; si no hay, muestra "No tenía reserva".
 - **QR de la entrada**: `/enlaces` es una página pública con accesos a la web, Instagram (`VITE_INSTAGRAM`) y WhatsApp. Su QR se descarga desde la página de Check-in.
+- **Correos de reservas**: al reservar o cancelar, el cliente recibe un correo y el estudio (`NOTIFY_EMAIL`) otro aviso. Si el cambio lo hace el admin, solo se avisa al cliente. Se configura con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` y `APP_URL` en Render; sin `SMTP_HOST` no se envía nada. Requiere Node 20+.
 - Cambios de esquema o de datos van en `backend/src/migrations.js` y se aplican una sola vez al arrancar la API.
 
 ## Despliegue
