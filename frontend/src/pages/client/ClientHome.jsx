@@ -219,7 +219,8 @@ export default function ClientHome() {
   const book = (slot) =>
     act(async () => {
       await api('/reservations', { method: 'POST', body: { slot_id: slot.id } });
-      return `Listo: reservaste el ${confirmByWhatsApp(slot, 'clase FLEX')}.`;
+      const what = slot.class_type === 'personal' ? 'sesión 1:1' : 'clase FLEX';
+      return `Listo: reservaste el ${confirmByWhatsApp(slot, what)}.`;
     }, slot.id);
 
   const bookEvaluation = async (slot) => {
@@ -360,11 +361,6 @@ export default function ClientHome() {
                     </p>
                   )}
                   <div className="mt-5 flex flex-wrap gap-2">
-                    {m.class_type === 'personal' && (
-                      <a href={personalLink} target="_blank" rel="noreferrer" className="btn-primary btn-sm">
-                        <MessageCircle className="h-4 w-4" /> Agendar sesión 1:1
-                      </a>
-                    )}
                     <button className="btn-ghost btn-sm" onClick={() => setFreezing(m)}>
                       <Snowflake className="h-4 w-4" /> Congelar plan
                     </button>
@@ -424,6 +420,7 @@ export default function ClientHome() {
             </h2>
             <p className="mt-1 text-sm text-bone-muted">
               FLEX · máximo 6 atletas por clase
+              {hasPersonalPlan && ' · horarios 1:1 libres para tu plan personalizado'}
               {status.founder && ` · como Founder reservas con ${horizon} días de anticipación`}
             </p>
           </div>
@@ -471,7 +468,10 @@ export default function ClientHome() {
                         ? full ? 'Ocupado' : 'Disponible'
                         : `${spots} de ${slot.capacity} cupos`}
                     </p>
-                    {slot.founders_only && <Badge tone="red" className="mt-1.5">Founders Only</Badge>}
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      <Badge tone={slot.class_type === 'personal' ? 'white' : 'gray'}>{CLASS_TYPES[slot.class_type].short}</Badge>
+                      {slot.founders_only && <Badge tone="red">Founders Only</Badge>}
+                    </div>
                   </div>
                   {busySlot === slot.id ? (
                     <Spinner />
@@ -518,7 +518,7 @@ export default function ClientHome() {
             <div>
               <p className="font-semibold">¿Prefieres entrenar 1:1?</p>
               <p className="mt-1 text-sm text-bone-muted">
-                Las sesiones personalizadas se agendan directamente con tu coach para encontrar tu mejor horario.
+                Escríbenos para activar un plan personalizado; con él reservas tus sesiones 1:1 aquí mismo.
               </p>
             </div>
             <a href={personalLink} target="_blank" rel="noreferrer" className="btn-ghost shrink-0">

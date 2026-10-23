@@ -66,11 +66,8 @@ async function lockBookableSlot(db, userId, slotId, { asAdmin }) {
   return { slot, taken, status };
 }
 
-export async function createReservation(db, userId, slotId, { allowPersonal = true, asAdmin = false } = {}) {
+export async function createReservation(db, userId, slotId, { asAdmin = false } = {}) {
   const { slot, taken, status } = await lockBookableSlot(db, userId, slotId, { asAdmin });
-  if (slot.class_type === 'personal' && !allowPersonal) {
-    throw new HttpError(403, 'Las sesiones personalizadas se agendan por WhatsApp con tu coach');
-  }
   if (slot.founders_only && !status.founder && !asAdmin) {
     throw new HttpError(403, 'Este horario es exclusivo para Founders');
   }

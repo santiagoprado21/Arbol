@@ -46,6 +46,11 @@ router.use(requireAuth);
 router.get('/slots', async (req, res) => {
   await ensureSlots();
   const status = await memberStatus({ query }, req.user.id);
+  const { rows: [{ has_personal }] } = await query(
+    `SELECT EXISTS (SELECT 1 FROM memberships m JOIN plans p ON p.id = m.plan_id
+                    WHERE m.user_id = $1 AND p.class_type = 'personal' AND m.end_date >= ${TODAY}) AS has_personal`,
+    [req.user.id],
+  );
   const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 22);
   const from = /^\d{4}-\d{2}-\d{2}$/.test(req.query.from || '') ? req.query.from : null;
   const { rows } = await query(
@@ -54,11 +59,13 @@ router.get('/slots', async (req, res) => {
             (SELECT r.id FROM reservations r WHERE r.slot_id = s.id AND r.user_id = $3 AND r.status = 'booked' LIMIT 1)
               AS my_reservation_id
      FROM class_slots s
-     WHERE s.status = 'open' AND s.class_type = 'semi' AND (NOT s.founders_only OR $4::bool)
+     WHERE s.status = 'open' AND (NOT s.founders_only OR $4::bool)
+       AND (s.class_type = 'semi' OR ($5::bool AND NOT EXISTS (
+             SELECT 1 FROM reservations r WHERE r.slot_id = s.id AND r.user_id <> $3 AND r.status IN ${OCCUPYING})))
        AND s.starts_at >= (coalesce($1::date, ${TODAY}))::timestamp AT TIME ZONE '${TZ}'
        AND s.starts_at < (coalesce($1::date, ${TODAY}) + $2::int)::timestamp AT TIME ZONE '${TZ}'
      ORDER BY s.starts_at, s.class_type`,
-    [from, days, req.user.id, status.founder],
+    [from, days, req.user.id, status.founder, has_personal],
   );
   res.json({ slots: rows });
 });
@@ -121,7 +128,7 @@ router.get('/me/reservations', async (req, res) => {
 
 router.post('/reservations', async (req, res) => {
   const reservation = await tx((db) =>
-    createReservation(db, req.user.id, Number(req.body?.slot_id), { allowPersonal: false }),
+    createReservation(db, req.user.id, Number(req.body?.slot_id)),
   );
   res.status(201).json({ reservation });
 });

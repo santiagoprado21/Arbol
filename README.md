@@ -20,7 +20,7 @@ Admin local por defecto: `admin@arbol.co` / `arbol123`. Para empezar de cero, bo
 ## Reglas de negocio actuales
 
 - Modalidades: **Personalizado 1:1** y **FLEX** (antes semi-personalizado, cupo máximo 6). FLEX ya no tiene plan de 4 clases.
-- Los clientes solo reservan desde la app clases FLEX; las 1:1 se agendan por WhatsApp (el admin puede registrarlas en la agenda).
+- Los clientes reservan desde la app clases FLEX y, si tienen un plan 1:1 vigente, también las franjas 1:1 libres (el admin también puede registrarlas en la agenda).
 - Para reservar, el cliente necesita un plan vigente de esa modalidad con sesiones disponibles (y no congelado en esa fecha).
 - Se puede reservar hasta 14 días adelante (21 para Founders). Las clases se generan automáticamente desde las franjas semanales (pestaña Horarios).
 - Cancelar con 12 h o más devuelve la sesión; con menos de 12 h queda como cancelación tardía y la sesión se descuenta. Las inasistencias también descuentan.
