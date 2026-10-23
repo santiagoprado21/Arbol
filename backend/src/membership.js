@@ -16,12 +16,14 @@ export const PRICE_TIERS = ['regular', 'founder', 'founder_bonus', 'membership']
 
 const isDate = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
-// SQL expression: end date of the user's annual Founder membership covering today, or NULL.
-export const founderUntilSql = (userCol) => `(
+// SQL expression: end date of the user's annual membership covering today, or NULL. `typeSql` is a SQL expression
+// for the membership type: the default only counts the full Founder membership.
+export const founderUntilSql = (userCol, typeSql = `'founder'`) => `(
   SELECT max(fm.end_date) FROM memberships fm JOIN plans fp ON fp.id = fm.plan_id
-  WHERE fm.user_id = ${userCol} AND fp.class_type = 'membership'
+  WHERE fm.user_id = ${userCol} AND fp.class_type = 'membership' AND fp.membership_type = ${typeSql}
     AND ${TODAY} BETWEEN fm.start_date AND fm.end_date)`;
 
+// Founder Lite: founder rates without the monthly bonus, plus flexible freezes. No priority, Founders Only or guest.
 export async function memberStatus(db, userId, onDate = null) {
   const { rows: [s] } = await db.query(
     `SELECT u.client_type, u.founder_bonus_active, u.invited_by, h.full_name AS invited_by_name,
@@ -30,7 +32,7 @@ export async function memberStatus(db, userId, onDate = null) {
      LEFT JOIN users h ON h.id = u.invited_by
      LEFT JOIN LATERAL (
        SELECT m.start_date, m.end_date FROM memberships m JOIN plans p ON p.id = m.plan_id
-       WHERE m.user_id = u.id AND p.class_type = 'membership'
+       WHERE m.user_id = u.id AND p.class_type = 'membership' AND p.membership_type = u.client_type
          AND coalesce($2::date, ${TODAY}) BETWEEN m.start_date AND m.end_date
        ORDER BY m.end_date DESC LIMIT 1
      ) fm ON true
@@ -39,17 +41,19 @@ export async function memberStatus(db, userId, onDate = null) {
   );
   if (!s) throw new HttpError(404, 'Cliente no encontrado');
   const founder = s.client_type === 'founder' && s.founder_until != null;
+  const founderLite = s.client_type === 'founder_lite' && s.founder_until != null;
   return {
     client_type: s.client_type,
     founder,
+    founder_lite: founderLite,
     founder_since: s.founder_since,
     founder_until: s.founder_until,
-    founder_rates: founder || s.client_type === 'founder_guest',
+    founder_rates: founder || founderLite || s.client_type === 'founder_guest',
     bonus_active: founder && s.founder_bonus_active,
     invited_by: s.invited_by,
     invited_by_name: s.invited_by_name,
     booking_horizon_days: founder ? FOUNDER_BOOKING_HORIZON_DAYS : BOOKING_HORIZON_DAYS,
-    freeze_policy: FREEZE_POLICY[founder ? 'founder' : 'regular'],
+    freeze_policy: FREEZE_POLICY[founder || founderLite ? 'founder' : 'regular'],
   };
 }
 

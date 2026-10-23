@@ -276,7 +276,9 @@ export default function ClientHome() {
           <p className="eyebrow">Mi cuenta</p>
           <h1 className="mt-3 flex flex-wrap items-center gap-3 text-3xl font-semibold tracking-tight">
             Hola, {firstName}.
-            {(status.founder || status.client_type === 'founder_guest') && <ClientTypeBadge type={status.client_type} />}
+            {(status.founder || status.founder_lite || status.client_type === 'founder_guest') && (
+              <ClientTypeBadge type={status.client_type} />
+            )}
           </h1>
         </div>
 
@@ -284,15 +286,19 @@ export default function ClientHome() {
           <section className="card relative overflow-hidden border-seed/40 p-6">
             <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-seed/15 blur-3xl" />
             <p className="flex items-center gap-2 text-xs uppercase tracking-wider text-seed">
-              <Sprout className="h-4 w-4" /> Founder
+              <Sprout className="h-4 w-4" /> {status.founder_lite ? 'Founder Lite' : 'Founder'}
             </p>
             <p className="mt-1 text-lg font-semibold">{founderMembership.plan_name}</p>
             <p className="mt-1 text-sm text-bone-muted">Vigente hasta el {formatDay(founderMembership.end_date, { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             <ul className="mt-4 grid gap-2 text-sm text-bone-muted sm:grid-cols-2">
               <li>· Tarifas exclusivas Founder{status.bonus_active && ' con bono mensual'}</li>
-              <li>· Reservas con {status.booking_horizon_days} días de anticipación</li>
-              <li>· Horarios Founders Only</li>
-              <li>· Un invitado con tarifa Founder</li>
+              {status.founder && (
+                <>
+                  <li>· Reservas con {status.booking_horizon_days} días de anticipación</li>
+                  <li>· Horarios Founders Only</li>
+                  <li>· Un invitado con tarifa Founder</li>
+                </>
+              )}
               <li>· Congelamiento flexible: {status.freeze_policy.maxFreezes} veces, hasta {status.freeze_policy.maxDays} días por plan</li>
             </ul>
             {status.bonus_active && (

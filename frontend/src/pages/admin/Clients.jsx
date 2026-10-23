@@ -12,8 +12,10 @@ const FILTERS = [
   ['ok', 'Al día'],
   ['no_plan', 'Sin plan'],
   ['founder', 'Founders'],
+  ['founder_lite', 'Founder Lite'],
   ['founder_guest', 'Invitados Founder'],
 ];
+const CLIENT_TYPE_FILTERS = ['founder', 'founder_lite', 'founder_guest'];
 
 export default function Clients() {
   const [clients, setClients] = useState(null);
@@ -31,7 +33,7 @@ export default function Clients() {
     return clients.filter((c) => {
       if (term && ![c.full_name, c.email, c.cedula, c.phone].some((v) => v?.toLowerCase().includes(term))) return false;
       if (filter === 'attention') return ['expired', 'pending', 'expiring'].includes(c.alert.code);
-      if (filter === 'founder' || filter === 'founder_guest') return c.client_type === filter;
+      if (CLIENT_TYPE_FILTERS.includes(filter)) return c.client_type === filter;
       if (filter !== 'all') return c.alert.code === filter;
       return true;
     });

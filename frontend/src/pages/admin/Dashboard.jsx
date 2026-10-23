@@ -44,7 +44,7 @@ export default function Dashboard() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Users} label="Clientes" value={clients.total} sub={`${clients.founder} Founders · ${clients.founder_guest} invitados · ${clients.new_this_month} nuevos este mes`} />
+        <StatCard icon={Users} label="Clientes" value={clients.total} sub={`${clients.founder} Founders · ${clients.founder_lite} Lite · ${clients.founder_guest} invitados · ${clients.new_this_month} nuevos este mes`} />
         <StatCard icon={UserCheck} label="Con plan activo" value={clients.active} sub={`${clients.without_plan} sin plan`} />
         <StatCard icon={CircleDollarSign} label="Ingresos del mes" value={formatMoney(data.revenue_month)} sub="Planes, membresías y valoraciones" />
         <StatCard

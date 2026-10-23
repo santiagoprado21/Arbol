@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   cedula               TEXT UNIQUE,
   phone                TEXT,
   role                 TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('client', 'admin')),
-  client_type          TEXT NOT NULL DEFAULT 'regular' CHECK (client_type IN ('regular', 'founder', 'founder_guest')),
+  client_type          TEXT NOT NULL DEFAULT 'regular' CHECK (client_type IN ('regular', 'founder', 'founder_lite', 'founder_guest')),
   status               TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'inactive')),
   invited_by           INTEGER REFERENCES users(id) ON DELETE SET NULL,
   founder_bonus_active BOOLEAN NOT NULL DEFAULT true,
@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- class_type 'membership' is the annual Founder membership: no sessions, unlocks founder benefits.
+-- class_type 'membership' is an annual membership with no sessions; membership_type is the client type it grants
+-- ('founder' unlocks every founder benefit, 'founder_lite' only founder rates without bonus and flexible freezes).
 CREATE TABLE IF NOT EXISTS plans (
   id                  SERIAL PRIMARY KEY,
   code                TEXT NOT NULL UNIQUE,
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS plans (
   price_regular       INTEGER NOT NULL,
   price_founder       INTEGER,
   price_founder_bonus INTEGER,
+  membership_type     TEXT CHECK (membership_type IN ('founder', 'founder_lite')),
   active              BOOLEAN NOT NULL DEFAULT true
 );
 

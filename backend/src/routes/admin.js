@@ -29,7 +29,7 @@ function alertFor(c) {
 async function clientsSummary() {
   const { rows } = await query(
     `SELECT u.id, u.full_name, u.email, u.phone, u.cedula, u.client_type, u.status, u.created_at, u.invited_by,
-            ${founderUntilSql('u.id')} AS founder_until,
+            ${founderUntilSql('u.id', 'u.client_type')} AS founder_until,
             m.id AS membership_id, m.start_date, m.end_date, m.sessions_total, m.amount, m.payment_status,
             p.name AS plan_name, p.class_type,
             (SELECT count(*)::int FROM reservations r WHERE r.membership_id = m.id AND r.status IN ${CONSUMING})
@@ -54,6 +54,7 @@ router.get('/stats', async (_req, res) => {
   const [clients, active, pending, revenue, today, attendance, series, occupancy, summary] = await Promise.all([
     one(`SELECT count(*)::int AS total,
                 count(*) FILTER (WHERE client_type = 'founder')::int AS founder,
+                count(*) FILTER (WHERE client_type = 'founder_lite')::int AS founder_lite,
                 count(*) FILTER (WHERE client_type = 'founder_guest')::int AS founder_guest,
                 count(*) FILTER (WHERE created_at >= date_trunc('month', now()))::int AS new_this_month
          FROM users WHERE role = 'client'`),
@@ -250,8 +251,8 @@ router.post('/clients/:id/memberships', async (req, res) => {
     if (quote.loses_bonus) {
       await db.query(`UPDATE users SET founder_bonus_active = false WHERE id = $1`, [userId]);
     }
-    if (plan.class_type === 'membership' && user.client_type !== 'founder') {
-      await db.query(`UPDATE users SET client_type = 'founder', invited_by = NULL WHERE id = $1`, [userId]);
+    if (plan.class_type === 'membership' && user.client_type !== plan.membership_type) {
+      await db.query(`UPDATE users SET client_type = $2, invited_by = NULL WHERE id = $1`, [userId, plan.membership_type]);
     }
     return m;
   });
@@ -330,7 +331,8 @@ router.get('/agenda', async (req, res) => {
     `SELECT s.id, s.starts_at, s.ends_at, s.class_type, s.capacity, s.status, s.founders_only,
             coalesce(json_agg(json_build_object(
               'id', r.id, 'status', r.status, 'user_id', u.id, 'full_name', u.full_name, 'phone', u.phone,
-              'client_type', u.client_type, 'founder', u.client_type = 'founder' AND ${founderUntilSql('u.id')} IS NOT NULL,
+              'client_type', u.client_type,
+              'founder', u.client_type IN ('founder', 'founder_lite') AND ${founderUntilSql('u.id', 'u.client_type')} IS NOT NULL,
               'is_evaluation', e.id IS NOT NULL
             ) ORDER BY u.full_name) FILTER (WHERE r.id IS NOT NULL), '[]') AS attendees
      FROM class_slots s
@@ -491,7 +493,7 @@ router.delete('/templates/:id', async (req, res) => {
 
 router.get('/plans', async (_req, res) => {
   const { rows } = await query(
-    `SELECT * FROM plans ORDER BY class_type = 'membership' DESC, class_type DESC, sessions`,
+    `SELECT * FROM plans ORDER BY class_type = 'membership' DESC, class_type DESC, sessions, membership_type`,
   );
   res.json({ plans: rows });
 });

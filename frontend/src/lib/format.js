@@ -41,6 +41,7 @@ export const CLASS_TYPES = {
 export const CLIENT_TYPES = {
   regular: 'Regular',
   founder: 'Founder',
+  founder_lite: 'Founder Lite',
   founder_guest: 'Invitado Founder',
 };
 

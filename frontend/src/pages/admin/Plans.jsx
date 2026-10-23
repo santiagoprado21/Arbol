@@ -51,7 +51,9 @@ function PlanRow({ plan, onSaved }) {
         <p className="font-medium">{plan.name}</p>
         <p className="text-xs text-bone-dim">
           {isMembership
-            ? `${plan.duration_months} meses · habilita los beneficios Founder`
+            ? plan.membership_type === 'founder_lite'
+              ? `${plan.duration_months} meses · tarifa Founder sin bono y congelamiento flexible`
+              : `${plan.duration_months} meses · habilita los beneficios Founder`
             : `${CLASS_TYPES[plan.class_type].label} · ${plan.sessions} sesiones${plan.duration_months > 1 ? ` · ${plan.duration_months} meses` : ''} · ${formatMoney(form.price_regular / plan.sessions)} c/u`}
         </p>
         {error && <p className="text-xs text-red-400">{error}</p>}
@@ -158,7 +160,7 @@ export default function Plans() {
     <div>
       <PageHeader
         title="Planes y precios"
-        subtitle="La tarifa se elige sola al activar un plan: regular, Founder (también para Invitados Founder) o Founder con bono mensual, que se mantiene mientras el Founder renueve su plan mes a mes."
+        subtitle="La tarifa se elige sola al activar un plan: regular, Founder (también para Founder Lite e Invitados Founder) o Founder con bono mensual, que se mantiene mientras el Founder renueve su plan mes a mes."
       >
         <button className="btn-primary btn-sm" onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" /> Nuevo plan

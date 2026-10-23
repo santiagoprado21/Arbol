@@ -6,6 +6,7 @@ import { Badge, EmptyState, ErrorNote, Field, Modal, PageLoader } from '../../co
 import { api } from '../../lib/api';
 import {
   CLASS_TYPES,
+  CLIENT_TYPES,
   EVALUATION_LABEL,
   EVALUATION_PRICE,
   RESERVATION_STATUS,
@@ -164,7 +165,7 @@ export default function Agenda() {
                         </Link>
                         <span className="text-[11px] text-bone-dim">
                           {[
-                            a.founder && 'Founder',
+                            a.founder && CLIENT_TYPES[a.client_type],
                             a.client_type === 'founder_guest' && 'Invitado Founder',
                             a.is_evaluation && 'Valoración',
                             a.status !== 'booked' && RESERVATION_STATUS[a.status].label,

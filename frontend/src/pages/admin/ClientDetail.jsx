@@ -5,6 +5,7 @@ import { Badge, ClientTypeBadge, ErrorNote, Field, Modal, PageLoader, ProgressBa
 import { api } from '../../lib/api';
 import {
   CLASS_TYPES,
+  CLIENT_TYPES,
   EVALUATION_LABEL,
   PRICE_TIERS,
   RESERVATION_STATUS,
@@ -174,6 +175,24 @@ function FounderCard({ user, status, guests, onActivate, onToggleBonus }) {
       </section>
     );
   }
+  if (user.client_type === 'founder_lite') {
+    return (
+      <section className="card space-y-4 border-seed/40 p-6">
+        <p className="flex items-center gap-2 font-medium"><Sprout className="h-4 w-4 text-seed" /> Founder Lite</p>
+        {status.founder_lite ? (
+          <p className="text-sm text-bone-muted">
+            Membresía anual vigente hasta <span className="text-bone">{formatDay(status.founder_until)}</span>. Tiene tarifas Founder
+            (sin bono mensual) y congelamiento flexible.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-amber-300">Sin membresía Founder Lite vigente: por ahora paga tarifa regular.</p>
+            <button className="btn-primary btn-sm w-full" onClick={onActivate}>Activar membresía Founder Lite</button>
+          </>
+        )}
+      </section>
+    );
+  }
   if (user.client_type !== 'founder') return null;
   return (
     <section className="card space-y-4 border-seed/40 p-6">
@@ -261,7 +280,7 @@ export default function ClientDetail() {
   const { user, status, guests, memberships, reservations } = data;
   const phoneDigits = (user.phone || '').replace(/\D/g, '');
   const waPhone = phoneDigits.length === 10 ? `57${phoneDigits}` : phoneDigits;
-  const annualPlan = plans.find((p) => p.class_type === 'membership');
+  const annualPlan = plans.find((p) => p.class_type === 'membership' && p.membership_type === user.client_type);
 
   return (
     <div className="space-y-6">
@@ -273,7 +292,7 @@ export default function ClientDetail() {
         <div>
           <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight">
             {user.full_name}
-            <ClientTypeBadge type={user.client_type} active={status.founder} />
+            <ClientTypeBadge type={user.client_type} active={status.founder || status.founder_lite} />
           </h1>
           <p className="mt-1 text-sm text-bone-muted">
             CC {user.cedula} · {user.email} · {user.phone}
@@ -451,10 +470,18 @@ export default function ClientDetail() {
 
           <section className="card space-y-4 p-6">
             <p className="font-medium">Perfil</p>
-            <Field label="Tipo de cliente" hint={profile.client_type === 'founder' ? 'Los beneficios se activan con la membresía anual Founder.' : undefined}>
+            <Field
+              label="Tipo de cliente"
+              hint={
+                profile.client_type === 'founder' || profile.client_type === 'founder_lite'
+                  ? `Los beneficios se activan con la membresía anual ${CLIENT_TYPES[profile.client_type]}.`
+                  : undefined
+              }
+            >
               <select className="input" value={profile.client_type} onChange={(e) => setProfile({ ...profile, client_type: e.target.value })}>
                 <option value="regular">Regular</option>
                 <option value="founder">Founder</option>
+                <option value="founder_lite">Founder Lite</option>
                 <option value="founder_guest">Invitado Founder</option>
               </select>
             </Field>

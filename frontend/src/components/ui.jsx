@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Loader2, X } from 'lucide-react';
+import { CLIENT_TYPES } from '../lib/format';
 
 const TONES = {
   green: 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20',
@@ -16,10 +17,10 @@ export function Badge({ tone = 'gray', children, className = '' }) {
 
 // `active` is false for a founder whose annual membership is not current: still labeled, but muted.
 export function ClientTypeBadge({ type, active = true, className = '' }) {
-  if (type === 'founder') {
+  if (type === 'founder' || type === 'founder_lite') {
     return (
       <span className={`badge ${active ? 'bg-seed/15 text-bone ring-1 ring-seed/50' : TONES.gray} ${className}`}>
-        Founder{!active && ' (sin membresía)'}
+        {CLIENT_TYPES[type]}{!active && ' (sin membresía)'}
       </span>
     );
   }

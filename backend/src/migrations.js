@@ -122,6 +122,23 @@ const MIGRATIONS = [
       await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_checkin_token_key ON users(checkin_token)`);
     },
   },
+  {
+    id: '2026-10-23-founder-lite',
+    run: async (db) => {
+      await db.query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_client_type_check`);
+      await db.query(
+        `ALTER TABLE users ADD CONSTRAINT users_client_type_check
+           CHECK (client_type IN ('regular', 'founder', 'founder_lite', 'founder_guest'))`,
+      );
+      await db.query(
+        `ALTER TABLE plans ADD COLUMN IF NOT EXISTS membership_type TEXT
+           CHECK (membership_type IN ('founder', 'founder_lite'))`,
+      );
+      await db.query(
+        `UPDATE plans SET membership_type = 'founder' WHERE class_type = 'membership' AND membership_type IS NULL`,
+      );
+    },
+  },
 ];
 
 export async function runMigrations() {
