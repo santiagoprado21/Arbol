@@ -84,25 +84,78 @@ function FreezeRequest({ membership, policy, onDone }) {
   );
 }
 
+function BookingSummary({ slot, title, rows, note, busy, onConfirm, onBack }) {
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border-l-4 border-seed bg-ink-850 px-5 py-4">
+        <p className="text-xs uppercase tracking-wider text-seed">{title}</p>
+        <p className="mt-1 text-lg font-semibold first-letter:uppercase">
+          {formatDate(slot.starts_at, { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
+        <p className="text-bone-muted">
+          {formatTime(slot.starts_at)}
+          {slot.ends_at && ` – ${formatTime(slot.ends_at)}`}
+        </p>
+        {rows.length > 0 && (
+          <dl className="mt-4 space-y-2 border-t border-ink-700 pt-3 text-sm">
+            {rows.map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-4">
+                <dt className="text-bone-dim">{k}</dt>
+                <dd className="text-right">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+      {note && <p className="text-xs text-bone-dim">{note}</p>}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row">
+        <button className="btn-ghost flex-1" onClick={onBack} disabled={busy}>Volver</button>
+        <button className="btn-primary flex-1" onClick={onConfirm} disabled={busy}>
+          {busy ? <Spinner className="h-4 w-4 text-white" /> : 'Sí, reservar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EvaluationPicker({ onBook }) {
   const [slots, setSlots] = useState(null);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api('/evaluation/slots').then((d) => setSlots(d.slots)).catch((e) => setError(e.message));
   }, []);
 
-  const book = async (slot) => {
-    setBusy(slot.id);
+  const book = async () => {
+    setBusy(true);
     setError('');
     try {
-      await onBook(slot);
+      await onBook(selected);
     } catch (err) {
       setError(err.message);
-      setBusy(null);
+      setSelected(null);
+      setBusy(false);
     }
   };
+
+  if (selected) {
+    return (
+      <BookingSummary
+        slot={selected}
+        title="¿Confirmas tu valoración?"
+        rows={[
+          ['Sesión', EVALUATION_LABEL],
+          ['Valor', formatMoney(EVALUATION_PRICE)],
+        ]}
+        note="Si luego adquieres un plan, te abonamos el valor de la valoración. Si no puedes asistir, cancela con al menos 12 horas de anticipación."
+        busy={busy}
+        onConfirm={book}
+        onBack={() => setSelected(null)}
+      />
+    );
+  }
 
   const byDay = (slots || []).reduce((acc, s) => {
     (acc[dayKey(s.starts_at)] ||= []).push(s);
@@ -132,8 +185,8 @@ function EvaluationPicker({ onBook }) {
               <p className="mb-2 text-xs uppercase tracking-wider text-bone-dim">{formatDay(day, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
               <div className="flex flex-wrap gap-2">
                 {list.map((s) => (
-                  <button key={s.id} className="btn-ghost btn-sm" disabled={busy !== null} onClick={() => book(s)}>
-                    {busy === s.id ? <Spinner className="h-3.5 w-3.5" /> : formatTime(s.starts_at)}
+                  <button key={s.id} className="btn-ghost btn-sm" onClick={() => setSelected(s)}>
+                    {formatTime(s.starts_at)}
                   </button>
                 ))}
               </div>
@@ -159,6 +212,7 @@ export default function ClientHome() {
   const [freezing, setFreezing] = useState(null);
   const [evaluationOpen, setEvaluationOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [pendingSlot, setPendingSlot] = useState(null);
 
   const load = useCallback(async () => {
     const [m, s, r] = await Promise.all([
@@ -253,6 +307,15 @@ export default function ClientHome() {
   }
 
   const firstName = user.full_name.split(' ')[0];
+  const pendingPlan = pendingSlot
+    ? sessionPlans.find(
+        (m) =>
+          m.class_type === pendingSlot.class_type &&
+          m.start_date <= dayKey(pendingSlot.starts_at) &&
+          m.end_date >= dayKey(pendingSlot.starts_at) &&
+          m.sessions_used < m.sessions_total,
+      )
+    : null;
   const reservationLabel = (r) => (r.is_evaluation ? EVALUATION_LABEL : CLASS_TYPES[r.class_type].label);
 
   return (
@@ -492,7 +555,7 @@ export default function ClientHome() {
                     <button
                       className="btn-primary btn-sm"
                       disabled={past || full || busySlot !== null}
-                      onClick={() => book(slot)}
+                      onClick={() => setPendingSlot(slot)}
                     >
                       {full ? 'Lleno' : 'Reservar'}
                     </button>
@@ -566,6 +629,35 @@ export default function ClientHome() {
               Listo
             </button>
           </div>
+        )}
+      </Modal>
+
+      <Modal open={Boolean(pendingSlot)} onClose={() => setPendingSlot(null)} title="¿Confirmas tu reserva?">
+        {pendingSlot && (
+          <BookingSummary
+            slot={pendingSlot}
+            title={CLASS_TYPES[pendingSlot.class_type].label}
+            rows={[
+              ...(pendingSlot.class_type === 'semi'
+                ? [['Cupos', `${pendingSlot.capacity - pendingSlot.taken} de ${pendingSlot.capacity} disponibles`]]
+                : []),
+              ...(pendingSlot.founders_only ? [['Horario', 'Founders Only']] : []),
+              ...(pendingPlan
+                ? [
+                    ['Plan', pendingPlan.plan_name],
+                    ['Sesiones', `Usarás 1 de tus ${pendingPlan.sessions_total - pendingPlan.sessions_used} restantes`],
+                  ]
+                : []),
+            ]}
+            note="Si no puedes asistir, cancela con al menos 12 horas de anticipación para que la sesión vuelva a tu plan."
+            busy={false}
+            onConfirm={() => {
+              const slot = pendingSlot;
+              setPendingSlot(null);
+              book(slot);
+            }}
+            onBack={() => setPendingSlot(null)}
+          />
         )}
       </Modal>
 
