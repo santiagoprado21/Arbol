@@ -22,6 +22,7 @@ import {
   membershipFreezes,
 } from '../membership.js';
 import { notifyReservation } from '../notify.js';
+import { loadProgress } from '../progress.js';
 
 const router = Router();
 
@@ -128,6 +129,10 @@ router.get('/me/reservations', async (req, res) => {
     [req.user.id],
   );
   res.json({ reservations: rows });
+});
+
+router.get('/me/progress', async (req, res) => {
+  res.json(await loadProgress({ query }, req.user.id));
 });
 
 router.post('/reservations', async (req, res) => {

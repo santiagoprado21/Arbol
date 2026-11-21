@@ -35,6 +35,7 @@ Admin local por defecto: `admin@arbol.co` / `arbol123`. Para empezar de cero, bo
 - **QR de la entrada**: `/enlaces` es una página pública con accesos a la web, Instagram (`VITE_INSTAGRAM`) y WhatsApp. Su QR se descarga desde la página de Check-in.
 - **Correos de reservas**: al reservar o cancelar, el cliente recibe un correo y el estudio (`NOTIFY_EMAIL`) otro aviso. Si el cambio lo hace el admin, solo se avisa al cliente. Se configura con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` y `APP_URL` en Render; sin `SMTP_HOST` no se envía nada. Requiere Node 20+.
 - **Aviso de vencimiento**: cada hora (entre 8 a. m. y 8 p. m.) la API revisa los planes y le escribe al cliente cuando faltan 5 días para que venza su plan, cuando le queda 1 sesión o ninguna, o 15 días antes de que venza su membresía anual. Cada aviso sale una sola vez por plan y no se envía si el cliente ya tiene un plan nuevo de esa modalidad. Los umbrales están en `backend/src/notify.js`.
+- **Progreso del atleta**: en la ficha del cliente el admin registra mediciones (peso, % grasa, % músculo, cintura, cadera, pecho, brazo, pierna; todas opcionales) y marcas de fuerza (ejercicio, peso y repeticiones), y define su objetivo. El cliente lo ve en "Mi progreso" con el cambio desde el primer registro y gráficas de evolución. Las observaciones de cada registro y el objetivo los ve el cliente; las notas internas no.
 - Cambios de esquema o de datos van en `backend/src/migrations.js` y se aplican una sola vez al arrancar la API.
 
 ## Despliegue

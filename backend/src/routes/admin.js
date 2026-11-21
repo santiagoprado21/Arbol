@@ -11,6 +11,7 @@ import {
   removeFreeze,
 } from '../membership.js';
 import { notifyReservation } from '../notify.js';
+import { loadProgress, parseMeasurement, parseStrength } from '../progress.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -165,7 +166,7 @@ router.patch('/clients/:id', async (req, res) => {
   const id = Number(req.params.id);
   const allowed = [
     'full_name', 'phone', 'cedula', 'client_type', 'status', 'medical_notes', 'admin_notes',
-    'invited_by', 'founder_bonus_active',
+    'invited_by', 'founder_bonus_active', 'goal',
   ];
   const body = Object.fromEntries(
     Object.entries(req.body || {})
@@ -196,6 +197,54 @@ router.patch('/clients/:id', async (req, res) => {
     [id, ...entries.map(([, v]) => v)],
   );
   res.json({ user: publicUser(user) });
+});
+
+async function requireClient(id) {
+  const user = await one(`SELECT id FROM users WHERE id = $1 AND role = 'client'`, [id]);
+  if (!user) throw new HttpError(404, 'Cliente no encontrado');
+}
+
+router.get('/clients/:id/progress', async (req, res) => {
+  const id = Number(req.params.id);
+  await requireClient(id);
+  res.json(await loadProgress({ query }, id));
+});
+
+router.post('/clients/:id/measurements', async (req, res) => {
+  const id = Number(req.params.id);
+  await requireClient(id);
+  const m = parseMeasurement(req.body);
+  const cols = Object.keys(m);
+  const measurement = await one(
+    `INSERT INTO body_measurements (user_id, ${cols.join(', ')})
+     VALUES ($1, ${cols.map((_, i) => `$${i + 2}`).join(', ')}) RETURNING *`,
+    [id, ...Object.values(m)],
+  );
+  res.status(201).json({ measurement });
+});
+
+router.delete('/measurements/:id', async (req, res) => {
+  const row = await one('DELETE FROM body_measurements WHERE id = $1 RETURNING id', [Number(req.params.id)]);
+  if (!row) throw new HttpError(404, 'Medición no encontrada');
+  res.json({ ok: true });
+});
+
+router.post('/clients/:id/strength', async (req, res) => {
+  const id = Number(req.params.id);
+  await requireClient(id);
+  const s = parseStrength(req.body);
+  const record = await one(
+    `INSERT INTO strength_records (user_id, exercise, recorded_on, load_kg, reps, notes)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [id, s.exercise, s.recorded_on, s.load_kg, s.reps, s.notes],
+  );
+  res.status(201).json({ record });
+});
+
+router.delete('/strength/:id', async (req, res) => {
+  const row = await one('DELETE FROM strength_records WHERE id = $1 RETURNING id', [Number(req.params.id)]);
+  if (!row) throw new HttpError(404, 'Marca no encontrada');
+  res.json({ ok: true });
 });
 
 async function loadQuoteInputs(db, userId, b) {

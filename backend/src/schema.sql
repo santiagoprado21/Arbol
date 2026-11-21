@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   checkin_token        TEXT NOT NULL UNIQUE DEFAULT gen_random_uuid()::text,
   medical_notes        TEXT,
   admin_notes          TEXT,
+  goal                 TEXT,
   accepted_terms_at    TIMESTAMPTZ,
   created_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -124,3 +125,33 @@ CREATE TABLE IF NOT EXISTS evaluations (
   created_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS evaluations_user_idx ON evaluations(user_id);
+
+-- Body check-ins recorded by the studio; every metric is optional so each visit logs only what was measured.
+CREATE TABLE IF NOT EXISTS body_measurements (
+  id           SERIAL PRIMARY KEY,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  measured_on  DATE NOT NULL,
+  weight_kg    DOUBLE PRECISION,
+  body_fat_pct DOUBLE PRECISION,
+  muscle_pct   DOUBLE PRECISION,
+  waist_cm     DOUBLE PRECISION,
+  hip_cm       DOUBLE PRECISION,
+  chest_cm     DOUBLE PRECISION,
+  arm_cm       DOUBLE PRECISION,
+  thigh_cm     DOUBLE PRECISION,
+  notes        TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS body_measurements_user_idx ON body_measurements(user_id, measured_on);
+
+CREATE TABLE IF NOT EXISTS strength_records (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  exercise    TEXT NOT NULL,
+  recorded_on DATE NOT NULL,
+  load_kg     DOUBLE PRECISION NOT NULL CHECK (load_kg >= 0),
+  reps        INTEGER NOT NULL DEFAULT 1 CHECK (reps > 0),
+  notes       TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS strength_records_user_idx ON strength_records(user_id, recorded_on);

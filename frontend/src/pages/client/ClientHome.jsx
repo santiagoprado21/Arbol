@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, CalendarDays, Clock, LogOut, MessageCircle, QrCode as QrCodeIcon, Snowflake, Sprout, Users } from 'lucide-react';
+import { Activity, CalendarDays, Clock, LineChart, LogOut, MessageCircle, QrCode as QrCodeIcon, Snowflake, Sprout, Users } from 'lucide-react';
 import Logo from '../../components/Logo';
+import { ProgressPanel } from '../../components/Progress';
 import QrCode from '../../components/QrCode';
 import { Badge, ClientTypeBadge, EmptyState, ErrorNote, Field, Modal, PageLoader, ProgressBar, Spinner } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
@@ -214,6 +215,11 @@ export default function ClientHome() {
   const [evaluationOpen, setEvaluationOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [pendingSlot, setPendingSlot] = useState(null);
+  const [progress, setProgress] = useState(null);
+
+  useEffect(() => {
+    api('/me/progress').then(setProgress).catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     const [m, s, r] = await Promise.all([
@@ -596,6 +602,21 @@ export default function ClientHome() {
             <a href={personalLink} target="_blank" rel="noreferrer" className="btn-ghost shrink-0">
               <MessageCircle className="h-4 w-4" /> Escribir por WhatsApp
             </a>
+          </section>
+        )}
+
+        {progress && (
+          <section>
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+              <LineChart className="h-5 w-5 text-seed" /> Mi progreso
+            </h2>
+            {progress.goal || progress.measurements.length || progress.strength.length ? (
+              <ProgressPanel progress={progress} />
+            ) : (
+              <div className="card p-6 text-sm text-bone-muted">
+                Aquí verás tu objetivo, tus medidas y cómo suben tus marcas de fuerza. Tu coach las registra en tus valoraciones.
+              </div>
+            )}
           </section>
         )}
 

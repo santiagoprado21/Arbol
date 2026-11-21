@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, HeartPulse, MessageCircle, Plus, Snowflake, Sprout, Trash2, X } from 'lucide-react';
+import { MeasurementForm, ProgressPanel, StrengthForm } from '../../components/Progress';
 import { Badge, ClientTypeBadge, ErrorNote, Field, Modal, PageLoader, ProgressBar, Spinner } from '../../components/ui';
 import { api } from '../../lib/api';
 import {
@@ -239,18 +240,35 @@ export default function ClientDetail() {
   const [freezing, setFreezing] = useState(null);
   const [profile, setProfile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState(null);
+  const [progressModal, setProgressModal] = useState(null);
 
   const load = useCallback(async () => {
-    const d = await api(`/admin/clients/${id}`);
+    const [d, p] = await Promise.all([api(`/admin/clients/${id}`), api(`/admin/clients/${id}/progress`)]);
     setData(d);
+    setProgress(p);
     setProfile({
       client_type: d.user.client_type,
       invited_by: d.user.invited_by ?? '',
       status: d.user.status,
       phone: d.user.phone || '',
+      goal: d.user.goal || '',
       admin_notes: d.user.admin_notes || '',
     });
   }, [id]);
+
+  const addProgress = async (kind, body) => {
+    await api(`/admin/clients/${id}/${kind}`, { method: 'POST', body });
+    setProgressModal(null);
+    setProgress(await api(`/admin/clients/${id}/progress`));
+  };
+
+  const deleteProgress = (path, question) =>
+    window.confirm(question) &&
+    run(async () => {
+      await api(path, { method: 'DELETE' });
+      setProgress(await api(`/admin/clients/${id}/progress`));
+    });
 
   useEffect(() => {
     load().catch((e) => setError(e.message));
@@ -403,6 +421,14 @@ export default function ClientDetail() {
             )}
           </section>
 
+          <ProgressPanel
+            progress={progress}
+            onAddMeasurement={() => setProgressModal('measurements')}
+            onDeleteMeasurement={(r) => deleteProgress(`/admin/measurements/${r.id}`, '¿Eliminar esta medición?')}
+            onAddStrength={() => setProgressModal('strength')}
+            onDeleteStrength={(r) => deleteProgress(`/admin/strength/${r.id}`, '¿Eliminar esta marca?')}
+          />
+
           <section className="card">
             <p className="border-b border-ink-700 px-6 py-4 font-medium">Reservas y asistencia</p>
             {reservations.length === 0 ? (
@@ -505,7 +531,10 @@ export default function ClientDetail() {
             <Field label="Teléfono">
               <input className="input" value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} />
             </Field>
-            <Field label="Notas internas">
+            <Field label="Objetivo" hint="Lo ve el cliente en su progreso.">
+              <textarea rows={2} className="input resize-none" placeholder="Ej. Bajar 5 kg y ganar fuerza en tren inferior" value={profile.goal} onChange={(e) => setProfile({ ...profile, goal: e.target.value })} />
+            </Field>
+            <Field label="Notas internas" hint="Solo las ve el estudio.">
               <textarea rows={3} className="input resize-none" value={profile.admin_notes} onChange={(e) => setProfile({ ...profile, admin_notes: e.target.value })} />
             </Field>
             <button className="btn-light w-full" onClick={saveProfile} disabled={saving}>
@@ -525,6 +554,20 @@ export default function ClientDetail() {
               setPlanModal(null);
               load();
             }}
+          />
+        )}
+      </Modal>
+
+      <Modal
+        open={Boolean(progressModal)}
+        onClose={() => setProgressModal(null)}
+        title={`${progressModal === 'strength' ? 'Nueva marca' : 'Nueva medición'} · ${user.full_name}`}
+      >
+        {progressModal === 'measurements' && <MeasurementForm onSubmit={(body) => addProgress('measurements', body)} />}
+        {progressModal === 'strength' && (
+          <StrengthForm
+            knownExercises={[...new Set(progress.strength.map((r) => r.exercise))]}
+            onSubmit={(body) => addProgress('strength', body)}
           />
         )}
       </Modal>

@@ -139,6 +139,12 @@ const MIGRATIONS = [
       );
     },
   },
+  {
+    id: '2026-11-20-client-goal',
+    run: async (db) => {
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS goal TEXT`);
+    },
+  },
 ];
 
 export async function runMigrations() {
