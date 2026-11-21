@@ -1,4 +1,6 @@
-import { query, TZ } from './db.js';
+import { query, TODAY, TZ } from './db.js';
+import { CONSUMING } from './booking.js';
+import { BONUS_GRACE_DAYS, memberStatus } from './membership.js';
 
 // Email is optional: without SMTP_HOST nothing is sent. nodemailer is loaded lazily because it needs Node 20+.
 const {
@@ -198,4 +200,117 @@ export function notifyReservation(reservationId, event, { byAdmin = false } = {}
       }
     }
   })().catch((err) => console.error('[notify] No se pudo enviar el correo:', err.message));
+}
+
+// Days before end_date to warn about; session plans are also warned when 1 or 0 sessions remain.
+const EXPIRY_NOTICE_DAYS = 5;
+const ANNUAL_EXPIRY_NOTICE_DAYS = 15;
+const LOW_SESSIONS = 1;
+// Reminders only go out during these Bogotá hours, so nobody gets an email at 3 a.m.
+const REMINDER_HOURS = [8, 20];
+
+// DATE columns arrive as 'YYYY-MM-DD' text; format them as calendar days, not instants.
+const fmtDay = (d, opts) => new Intl.DateTimeFormat('es-CO', { timeZone: 'UTC', ...opts }).format(new Date(`${d}T00:00:00Z`));
+const inDays = (n) => (n <= 0 ? 'hoy' : n === 1 ? 'mañana' : `en ${n} días`);
+
+export async function checkMembershipReminders() {
+  const remainingSql = `m.sessions_total - (SELECT count(*) FROM reservations r
+                          WHERE r.membership_id = m.id AND r.status IN ${CONSUMING})::int`;
+  const { rows } = await query(
+    `SELECT m.id, m.user_id, m.end_date, m.sessions_total, p.name AS plan_name, p.class_type,
+            u.full_name, u.email, (m.end_date - ${TODAY})::int AS days_left, ${remainingSql} AS remaining,
+            ARRAY(SELECT n.kind FROM membership_notices n WHERE n.membership_id = m.id) AS sent
+     FROM memberships m JOIN plans p ON p.id = m.plan_id JOIN users u ON u.id = m.user_id
+     WHERE u.role = 'client' AND u.status = 'active'
+       AND ${TODAY} BETWEEN m.start_date AND m.end_date
+       AND NOT EXISTS (SELECT 1 FROM memberships nm JOIN plans np ON np.id = nm.plan_id
+                       WHERE nm.user_id = m.user_id AND nm.id <> m.id AND np.class_type = p.class_type
+                         AND nm.end_date > m.end_date)
+       AND ((m.end_date - ${TODAY}) <= CASE WHEN p.class_type = 'membership' THEN $1::int ELSE $2::int END
+            OR (p.class_type <> 'membership' AND ${remainingSql} <= $3::int))`,
+    [ANNUAL_EXPIRY_NOTICE_DAYS, EXPIRY_NOTICE_DAYS, LOW_SESSIONS],
+  );
+
+  let sent = 0;
+  for (const m of rows) {
+    const annual = m.class_type === 'membership';
+    const due = [];
+    if (m.days_left <= (annual ? ANNUAL_EXPIRY_NOTICE_DAYS : EXPIRY_NOTICE_DAYS)) due.push('time');
+    if (!annual && m.remaining <= LOW_SESSIONS) due.push('sessions');
+    const pending = due.filter((k) => !m.sent.includes(k));
+    if (pending.length === 0) continue;
+
+    const { rows: claimed } = await query(
+      `INSERT INTO membership_notices (membership_id, kind) SELECT $1, unnest($2::text[])
+       ON CONFLICT DO NOTHING RETURNING kind`,
+      [m.id, pending],
+    );
+    const kinds = claimed.map((c) => c.kind);
+    if (kinds.length === 0) continue;
+
+    try {
+      await sendExpiryReminder(m, kinds);
+      sent++;
+    } catch (err) {
+      await query(`DELETE FROM membership_notices WHERE membership_id = $1 AND kind = ANY($2::text[])`, [m.id, kinds]);
+      console.error('[notify] No se pudo enviar el aviso de vencimiento:', err.message);
+    }
+  }
+  return sent;
+}
+
+async function sendExpiryReminder(m, kinds) {
+  const first = m.full_name.split(' ')[0];
+  const annual = m.class_type === 'membership';
+  const byTime = kinds.includes('time');
+  const bySessions = kinds.includes('sessions');
+  const ends = capitalize(fmtDay(m.end_date, { weekday: 'long', day: 'numeric', month: 'long' }));
+  const sessionsText =
+    m.remaining <= 0 ? 'Ya usaste todas las sesiones de tu plan.' : `Te queda ${m.remaining === 1 ? '1 sesión' : `${m.remaining} sesiones`} de tu plan.`;
+
+  const intro = annual
+    ? `Tu ${m.plan_name} vence ${inDays(m.days_left)}. Renuévala para mantener tus beneficios.`
+    : [bySessions && sessionsText, byTime && `Tu plan vence ${inDays(m.days_left)}.`, 'Renuévalo para seguir entrenando sin pausa.']
+        .filter(Boolean)
+        .join(' ');
+  const subject = annual
+    ? `Tu membresía vence ${inDays(m.days_left)}`
+    : bySessions && !byTime
+      ? m.remaining <= 0 ? 'Usaste todas las sesiones de tu plan' : 'Te queda 1 sesión de tu plan'
+      : `Tu plan vence ${inDays(m.days_left)}`;
+
+  let note = 'Escríbenos para renovar o cambiar de plan.';
+  if (!annual) {
+    const status = await memberStatus({ query }, m.user_id);
+    if (status.bonus_active) {
+      note = `Renueva a más tardar ${BONUS_GRACE_DAYS} días después del vencimiento para conservar tu bono mensual Founder.`;
+    }
+  }
+
+  await send(m.email, subject, {
+    preheader: intro,
+    eyebrow: annual ? 'Tu membresía está por vencer' : bySessions && !byTime ? 'Últimas sesiones' : 'Tu plan está por vencer',
+    title: `Hola, ${first}`,
+    intro,
+    details: [
+      ['Plan', m.plan_name],
+      ['Vence', ends],
+      ...(annual ? [] : [['Sesiones restantes', `${Math.max(m.remaining, 0)} de ${m.sessions_total}`]]),
+    ],
+    note,
+    cta: appUrl ? { label: 'Ver mi plan', href: `${appUrl}/app` } : null,
+  });
+}
+
+export function startMembershipReminders() {
+  if (!SMTP_HOST) return;
+  const tick = () => {
+    const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+    if (hour < REMINDER_HOURS[0] || hour > REMINDER_HOURS[1]) return;
+    checkMembershipReminders()
+      .then((n) => n && console.log(`[notify] Avisos de vencimiento enviados: ${n}`))
+      .catch((err) => console.error('[notify] Error revisando vencimientos:', err.message));
+  };
+  setTimeout(tick, 60_000);
+  setInterval(tick, 60 * 60_000);
 }

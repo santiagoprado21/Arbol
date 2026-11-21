@@ -5,6 +5,7 @@ import { initDb } from './db.js';
 import { runMigrations } from './migrations.js';
 import { seed } from './seed.js';
 import { ensureSlots } from './booking.js';
+import { startMembershipReminders } from './notify.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import clientRoutes from './routes/client.js';
@@ -49,3 +50,4 @@ await ensureSlots();
 
 const port = Number(process.env.PORT) || 4000;
 app.listen(port, () => console.log(`[api] Árbol API escuchando en http://localhost:${port}`));
+startMembershipReminders();

@@ -55,6 +55,8 @@ export const PRICE_TIERS = {
 export const EVALUATION_LABEL = 'Valoración biomecánica y prueba';
 // Display only; the charged amount comes from the API (EVALUATION_PRICE in backend/src/membership.js).
 export const EVALUATION_PRICE = 50000;
+// Display only; enforced by the API (BOOKING_CUTOFF_MINUTES in backend/src/booking.js).
+export const BOOKING_CUTOFF_MINUTES = 90;
 
 export const RESERVATION_STATUS = {
   booked: { label: 'Reservada', tone: 'blue' },

@@ -3,6 +3,8 @@ import { HttpError } from './auth.js';
 import { EVALUATION_PRICE, memberStatus } from './membership.js';
 
 export const LATE_CANCEL_HOURS = 12;
+// Clients can book until this many minutes before the class starts; the admin is not limited.
+export const BOOKING_CUTOFF_MINUTES = 90;
 export const SLOT_GENERATION_DAYS = 21;
 export const FLEX_MAX_CAPACITY = 6;
 
@@ -50,6 +52,9 @@ async function lockBookableSlot(db, userId, slotId, { asAdmin }) {
   const status = await memberStatus(db, userId);
   const startsAt = new Date(slot.starts_at);
   if (startsAt <= new Date()) throw new HttpError(400, 'Este horario ya pasó');
+  if (!asAdmin && startsAt - Date.now() < BOOKING_CUTOFF_MINUTES * 6e4) {
+    throw new HttpError(400, 'Las reservas cierran 1 hora y 30 minutos antes de la clase');
+  }
   if (!asAdmin && startsAt - Date.now() > status.booking_horizon_days * 864e5) {
     throw new HttpError(400, `Solo puedes reservar con ${status.booking_horizon_days} días de anticipación`);
   }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, tx, TODAY, TZ } from '../db.js';
 import { requireAuth } from '../auth.js';
 import {
+  BOOKING_CUTOFF_MINUTES,
   LATE_CANCEL_HOURS,
   OCCUPYING,
   activeMemberships,
@@ -35,6 +36,7 @@ router.get('/plans', async (_req, res) => {
 router.get('/config', (_req, res) => {
   res.json({
     lateCancelHours: LATE_CANCEL_HOURS,
+    bookingCutoffMinutes: BOOKING_CUTOFF_MINUTES,
     bookingHorizonDays: BOOKING_HORIZON_DAYS,
     founderBookingHorizonDays: FOUNDER_BOOKING_HORIZON_DAYS,
     evaluationPrice: EVALUATION_PRICE,
@@ -78,7 +80,8 @@ router.get('/evaluation/slots', async (req, res) => {
     `SELECT s.id, s.starts_at, s.ends_at
      FROM class_slots s
      WHERE s.status = 'open' AND s.class_type = 'personal' AND NOT s.founders_only
-       AND s.starts_at > now() AND s.starts_at <= now() + make_interval(days => $1)
+       AND s.starts_at > now() + make_interval(mins => ${BOOKING_CUTOFF_MINUTES})
+       AND s.starts_at <= now() + make_interval(days => $1)
        AND NOT EXISTS (SELECT 1 FROM reservations r WHERE r.slot_id = s.id AND r.status IN ${OCCUPYING})
      ORDER BY s.starts_at`,
     [status.booking_horizon_days],

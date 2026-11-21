@@ -22,7 +22,7 @@ Admin local por defecto: `admin@arbol.co` / `arbol123`. Para empezar de cero, bo
 - Modalidades: **Personalizado 1:1** y **FLEX** (antes semi-personalizado, cupo máximo 6). FLEX ya no tiene plan de 4 clases.
 - Los clientes reservan desde la app clases FLEX y, si tienen un plan 1:1 vigente, también las franjas 1:1 libres (el admin también puede registrarlas en la agenda).
 - Para reservar, el cliente necesita un plan vigente de esa modalidad con sesiones disponibles (y no congelado en esa fecha).
-- Se puede reservar hasta 14 días adelante (21 para Founders). Las clases se generan automáticamente desde las franjas semanales (pestaña Horarios).
+- Se puede reservar hasta 14 días adelante (21 para Founders) y hasta 1 h 30 min antes de que empiece la clase (FLEX, 1:1 y valoración). El admin puede agregar reservas sin ese límite. Las clases se generan automáticamente desde las franjas semanales (pestaña Horarios).
 - Cancelar con 12 h o más devuelve la sesión; con menos de 12 h queda como cancelación tardía y la sesión se descuenta. Las inasistencias también descuentan.
 - Tipos de cliente: **Regular**, **Founder**, **Founder Lite** e **Invitado Founder** (cada Founder puede tener uno).
 - Los beneficios Founder se activan con la **Membresía Founder · Anual** (plan de 12 meses sin sesiones). Al activarla, el cliente pasa a Founder automáticamente. Beneficios: tarifas Founder (con bono mensual), reservas con 21 días, franjas **Founders Only**, un invitado y congelamiento flexible.
@@ -34,6 +34,7 @@ Admin local por defecto: `admin@arbol.co` / `arbol123`. Para empezar de cero, bo
 - **Check-in con QR**: cada atleta tiene su QR en "Mi QR". En el panel (Check-in QR) el admin lo escanea con la cámara: confirma (marca "Asistió") la reserva de una clase que empieza dentro de 60 min o empezó hace menos de 90 min; si no hay, muestra "No tenía reserva".
 - **QR de la entrada**: `/enlaces` es una página pública con accesos a la web, Instagram (`VITE_INSTAGRAM`) y WhatsApp. Su QR se descarga desde la página de Check-in.
 - **Correos de reservas**: al reservar o cancelar, el cliente recibe un correo y el estudio (`NOTIFY_EMAIL`) otro aviso. Si el cambio lo hace el admin, solo se avisa al cliente. Se configura con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` y `APP_URL` en Render; sin `SMTP_HOST` no se envía nada. Requiere Node 20+.
+- **Aviso de vencimiento**: cada hora (entre 8 a. m. y 8 p. m.) la API revisa los planes y le escribe al cliente cuando faltan 5 días para que venza su plan, cuando le queda 1 sesión o ninguna, o 15 días antes de que venza su membresía anual. Cada aviso sale una sola vez por plan y no se envía si el cliente ya tiene un plan nuevo de esa modalidad. Los umbrales están en `backend/src/notify.js`.
 - Cambios de esquema o de datos van en `backend/src/migrations.js` y se aplican una sola vez al arrancar la API.
 
 ## Despliegue

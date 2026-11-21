@@ -7,6 +7,7 @@ import { Badge, ClientTypeBadge, EmptyState, ErrorNote, Field, Modal, PageLoader
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import {
+  BOOKING_CUTOFF_MINUTES,
   CLASS_TYPES,
   EVALUATION_LABEL,
   EVALUATION_PRICE,
@@ -488,7 +489,7 @@ export default function ClientHome() {
               <CalendarDays className="h-5 w-5 text-seed" /> Reservar clase
             </h2>
             <p className="mt-1 text-sm text-bone-muted">
-              FLEX · máximo 6 atletas por clase
+              FLEX · máximo 6 atletas por clase · reserva hasta 1 h 30 min antes
               {hasPersonalPlan && ' · horarios 1:1 libres para tu plan personalizado'}
               {status.founder && ` · como Founder reservas con ${horizon} días de anticipación`}
             </p>
@@ -520,7 +521,9 @@ export default function ClientHome() {
               </div>
             )}
             {daySlots.map((slot) => {
-              const past = new Date(slot.starts_at) <= new Date();
+              const minutesLeft = (new Date(slot.starts_at) - Date.now()) / 6e4;
+              const past = minutesLeft <= 0;
+              const closed = minutesLeft < BOOKING_CUTOFF_MINUTES;
               const full = slot.taken >= slot.capacity;
               const mine = Boolean(slot.my_reservation_id);
               const spots = slot.capacity - slot.taken;
@@ -554,10 +557,10 @@ export default function ClientHome() {
                   ) : (
                     <button
                       className="btn-primary btn-sm"
-                      disabled={past || full || busySlot !== null}
+                      disabled={closed || full || busySlot !== null}
                       onClick={() => setPendingSlot(slot)}
                     >
-                      {full ? 'Lleno' : 'Reservar'}
+                      {full ? 'Lleno' : closed ? 'Cerrada' : 'Reservar'}
                     </button>
                   )}
                 </div>

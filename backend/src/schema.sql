@@ -64,6 +64,14 @@ CREATE TABLE IF NOT EXISTS membership_freezes (
 );
 CREATE INDEX IF NOT EXISTS membership_freezes_membership_idx ON membership_freezes(membership_id);
 
+-- Expiry reminder emails already sent, so each kind goes out once per plan ('time' | 'sessions').
+CREATE TABLE IF NOT EXISTS membership_notices (
+  membership_id INTEGER NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+  kind          TEXT NOT NULL,
+  sent_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (membership_id, kind)
+);
+
 CREATE TABLE IF NOT EXISTS schedule_templates (
   id            SERIAL PRIMARY KEY,
   weekday       SMALLINT NOT NULL CHECK (weekday BETWEEN 0 AND 6),
